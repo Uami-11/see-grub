@@ -440,3 +440,12 @@ func parseKeyValue(line, sep string) (key, value string, ok bool) {
 
 	return key, value, true
 }
+
+func (p *Parser) closeBlock(theme *Theme) {
+	if p.currentBlock.Type != "unknown" {
+		theme.Components = append(theme.Components, p.currentBlock)
+	}
+	// Reset state.
+	p.currentBlock = Component{}
+	p.state = stateTopLevel
+}
