@@ -1,0 +1,237 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/Uami-11/see-grub/parser"
+)
+
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorYellow = "\033[33m"
+	colorGreen  = "\033[32m"
+	colorCyan   = "\033[36m"
+	colorBold   = "\033[1m"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprint(os.Stderr, "Usage: see-grub <theme directory> or <theme.txt>")
+		os.Exit(1)
+	}
+
+	themePath := resolveThemePath(os.Args[1])
+	if themePath == "" {
+		fmt.Fprintf(os.Stderr, "%serror%s could not find theme.txt in '%s'", colorRed, colorReset, os.Args[1])
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s%ssee-grub — theme diagnostics%s\n", colorBold, colorCyan, colorReset)
+	fmt.Printf("Parsing: %s\n\n", themePath)
+
+	theme, errs := parser.Parse(themePath)
+
+	printErrorList(errs)
+
+	printTheme(theme)
+
+	if errs.HasErrors() {
+		os.Exit(1)
+	}
+}
+
+func resolveThemePath(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+
+	if info.IsDir() {
+		candidate := path + "/theme.txt"
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+		return ""
+	}
+
+	// then is a file
+	return path
+}
+
+func printErrorList(errs *parser.ErrorList) {
+	if len(errs.Errors) == 0 {
+		fmt.Printf("%sNo errors or warnings%s\n\n", colorGreen, colorReset)
+		return
+	}
+
+	warnings := 0
+	errors := 0
+
+	for _, err := range errs.Errors {
+		msg := err.Error()
+
+		if isWarning(err) {
+			warnings++
+			fmt.Printf("%s%s%s\n", colorYellow, msg, colorReset)
+		} else {
+			errors++
+			fmt.Printf("%s%s%s\n", colorRed, msg, colorReset)
+		}
+	}
+
+	fmt.Printf("\n")
+
+	if errors > 0 {
+		fmt.Printf("%s%d error(s)%s\n", colorRed, errors, colorReset)
+	}
+
+	if warnings > 0 {
+		if errors > 0 {
+			fmt.Printf(", ")
+		}
+		fmt.Printf("%s%d warning(s)%s", colorYellow, warnings, colorReset)
+	}
+
+	fmt.Printf("\n\n")
+}
+
+func isWarning(err error) bool {
+	switch e := err.(type) {
+	case parser.ErrUnknownProperty:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrGlobMatch:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrMissingTerminalBox:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrFileNotFound:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrInvalidImageFormat:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrFontNotFound:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrBadValue:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrMalformedLined:
+		return e.Severity == parser.SeverityWarning
+	case parser.ErrUnknownComponent:
+		return e.Severity == parser.SeverityWarning
+	}
+	return false
+}
+
+func printTheme(theme *parser.Theme) {
+	header("Global Options")
+
+	field("title-text", theme.TitleText)
+	field("desktop-image", theme.DesktopImage)
+	field("desktop-color", theme.DesktopColor)
+	field("terminal-font", theme.TerminalFont)
+	field("terminal-box", theme.TerminalBox)
+	field("terminal-left", theme.TerminalLeft)
+	field("terminal-top", theme.TerminalTop)
+	field("terminal-width", theme.TerminalWidth)
+	field("terminal-height", theme.TerminalHeight)
+	field("terminal-border", theme.TerminalBorder)
+
+	fmt.Println()
+	header(fmt.Sprintf("Components (%d)", len(theme.Components)))
+
+	for i, c := range theme.Components {
+		printComponent(i, c)
+	}
+}
+
+func printComponent(index int, c parser.Component) {
+	fmt.Printf("\n  %s%s[%d] + %s%s (line %d)\n",
+		colorBold, colorCyan, index, string(c.Type), colorReset, c.Line)
+
+	// Geometry — shared by all.
+	if c.Left != "" || c.Top != "" {
+		fmt.Printf("    position : left=%s top=%s\n", orEmpty(c.Left), orEmpty(c.Top))
+	}
+	if c.Width != "" || c.Height != "" {
+		fmt.Printf("    size     : width=%s height=%s\n", orEmpty(c.Width), orEmpty(c.Height))
+	}
+
+	// Type-specific fields.
+	switch c.Type {
+	case parser.ComponentLabel:
+		field2("text", c.Text)
+		field2("font", c.Font)
+		field2("color", c.Color)
+		field2("align", c.Align)
+		if c.ID != "" {
+			field2("id", c.ID)
+		}
+
+	case parser.ComponentBootMenu:
+		field2("item_font", c.ItemFont)
+		field2("item_color", c.ItemColor)
+		field2("selected_item_color", c.SelectedItemColor)
+		field2("item_height", c.ItemHeight)
+		field2("item_padding", c.ItemPadding)
+		field2("item_spacing", c.ItemSpacing)
+		field2("item_pixmap_style", c.ItemPixmapStyle)
+		field2("selected_item_pixmap_style", c.SelectedItemPixmapStyle)
+		field2("icon_width", c.IconWidth)
+		field2("icon_height", c.IconHeight)
+		field2("item_icon_space", c.ItemIconSpace)
+
+	case parser.ComponentProgressBar:
+		field2("fg_color", c.FgColor)
+		field2("bg_color", c.BgColor)
+		field2("border_color", c.BorderColor)
+
+	case parser.ComponentImage:
+		field2("file", c.File)
+	}
+
+	// Children (vbox/hbox).
+	if len(c.Children) > 0 {
+		fmt.Printf("    children : %d\n", len(c.Children))
+		for j, child := range c.Children {
+			printComponent(j, child)
+		}
+	}
+}
+
+func header(title string) {
+	fmt.Printf("%s%s=== %s ===%s\n", colorBold, colorCyan, title, colorReset)
+}
+
+// field prints a top-level theme option, dimming it if empty.
+func field(name, value string) {
+	if value == "" {
+		fmt.Printf("  %-20s %s(not set)%s\n", name, colorYellow, colorReset)
+	} else {
+		fmt.Printf("  %-20s %s\n", name, value)
+	}
+}
+
+// field2 prints a component property, skipping it entirely if empty.
+// Component fields are optional so we don't clutter output with "(not set)".
+func field2(name, value string) {
+	if value == "" {
+		return
+	}
+	fmt.Printf("    %-28s %s\n", name, value)
+}
+
+func orEmpty(s string) string {
+	if s == "" {
+		return "(not set)"
+	}
+	return s
+}
+
+// divider prints a horizontal rule for visual separation.
+func divider() {
+	fmt.Println(strings.Repeat("─", 60))
+}
+
+// keep divider available so the compiler doesn't complain,
+// we'll use it more in the renderer stage.
+var _ = divider
