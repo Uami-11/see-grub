@@ -40,10 +40,22 @@ func NewFontRegistry(themeDir string) (*FontRegistry, []error) {
 		fonts: make(map[string]*PF2Font),
 	}
 
-	pattern := filepath.Join(themeDir, "*.pf2")
-	matches, err := filepath.Glob(pattern)
+	var matches []string
+	err := filepath.Walk(themeDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".pf2") {
+			matches = append(matches, path)
+		}
+		return nil
+	})
 	if err != nil {
 		return reg, []error{fmt.Errorf("scanning for .pf2 files: %w", err)}
+	}
+
+	if len(matches) == 0 {
+		return reg, []error{fmt.Errorf("no .pf2 files found in %q", themeDir)}
 	}
 
 	var errs []error
@@ -54,6 +66,8 @@ func NewFontRegistry(themeDir string) (*FontRegistry, []error) {
 			continue
 		}
 		reg.fonts[font.Name] = font
+
+		fmt.Printf("  font loaded: %q from %s\n", font.Name, filepath.Base(path))
 	}
 
 	return reg, errs
@@ -284,4 +298,70 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 
 		cursor += g.DeviceWidth
 	}
+}
+
+// DebugFonts scans themeDir for .pf2 files and returns diagnostic info
+// about each one without opening a window. Called via --fonts flag.
+func DebugFonts(themeDir string) ([]string, []error) {
+	var lines []string
+	var errs []error
+
+	var pf2files []string
+	filepath.Walk(themeDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".pf2") {
+			pf2files = append(pf2files, path)
+		}
+		return nil
+	})
+
+	lines = append(lines, fmt.Sprintf("Found %d .pf2 files:", len(pf2files)))
+
+	for _, path := range pf2files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		base := filepath.Base(path)
+
+		// Check magic
+		if len(data) < 4 {
+			lines = append(lines, fmt.Sprintf("  %-40s INVALID (too short)", base))
+			continue
+		}
+		magic := string(data[:4])
+		if magic != "PFF2" {
+			lines = append(lines, fmt.Sprintf("  %-40s INVALID magic: %q", base, magic))
+			continue
+		}
+
+		// Scan for NAME section
+		name := ""
+		offset := 4
+		for offset+8 <= len(data) {
+			sectionName := string(data[offset : offset+4])
+			sectionLen := int(binary.BigEndian.Uint32(data[offset+4 : offset+8]))
+			offset += 8
+			if offset+sectionLen > len(data) {
+				break
+			}
+			if sectionName == "NAME" {
+				name = strings.TrimRight(string(data[offset:offset+sectionLen]), "\x00")
+				break
+			}
+			offset += sectionLen
+		}
+
+		if name == "" {
+			lines = append(lines, fmt.Sprintf("  %-40s NO NAME section found", base))
+		} else {
+			lines = append(lines, fmt.Sprintf("  %-40s -> %q", base, name))
+		}
+	}
+
+	return lines, errs
 }
