@@ -112,6 +112,7 @@ func loadPF2(path string) (*PF2Font, error) {
 
 	var chixData []byte
 	var dataSection []byte
+	var dataStart int
 
 	for offset < len(data) {
 		if offset+8 > len(data) {
@@ -124,6 +125,7 @@ func loadPF2(path string) (*PF2Font, error) {
 
 		if sectionName == "DATA" {
 			dataSection = data[offset:]
+			dataStart = offset
 			break // nothing after DATA
 		}
 
@@ -167,7 +169,7 @@ func loadPF2(path string) (*PF2Font, error) {
 	}
 
 	if chixData != nil && dataSection != nil {
-		if err := decodeGlyphs(font, chixData, dataSection); err != nil {
+		if err := decodeGlyphs(font, chixData, dataSection, dataStart); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %s: glyph decode error: %v\n", path, err)
 		}
 	}
@@ -175,7 +177,7 @@ func loadPF2(path string) (*PF2Font, error) {
 	return font, nil
 }
 
-func decodeGlyphs(font *PF2Font, chix, data []byte) error {
+func decodeGlyphs(font *PF2Font, chix, data []byte, dataStart int) error {
 	const chixEntrySize = 9
 
 	if len(chix)%chixEntrySize != 0 {
@@ -188,9 +190,14 @@ func decodeGlyphs(font *PF2Font, chix, data []byte) error {
 		entry := chix[i*chixEntrySize : (i+1)*chixEntrySize]
 
 		codepoint := rune(binary.BigEndian.Uint32(entry[0:4]))
-		dataOffset := int(binary.BigEndian.Uint32(entry[5:9]))
+		absOffset := int(binary.BigEndian.Uint32(entry[5:9]))
 
-		glyph, err := decodeGlyph(data, dataOffset)
+		relOffset := absOffset - dataStart
+		if relOffset < 0 {
+			continue
+		}
+
+		glyph, err := decodeGlyph(data, relOffset)
 		if err != nil {
 			continue
 		}
@@ -289,6 +296,7 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 	}
 
 	cursor := x
+	first := true
 
 	for _, r := range text {
 		g, ok := font.Glyphs[r]
@@ -302,6 +310,12 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 		}
 
 		if g.Image != nil {
+			if first {
+				fmt.Printf("  glyph %q: w=%d h=%d xoff=%d yoff=%d devw=%d | drawX=%d drawY=%d (baseline y=%d ascent=%d)\n",
+					string(r), g.Width, g.Height, g.XOffset, g.YOffset, g.DeviceWidth,
+					cursor+g.XOffset, y-g.YOffset, y, font.Ascent)
+				first = false
+			}
 			op := &ebiten.DrawImageOptions{}
 
 			drawX := float64(cursor + g.XOffset)
