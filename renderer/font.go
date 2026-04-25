@@ -122,6 +122,11 @@ func loadPF2(path string) (*PF2Font, error) {
 		sectionLen := int(binary.BigEndian.Uint32(data[offset+4 : offset+8]))
 		offset += 8
 
+		if sectionName == "DATA" {
+			dataSection = data[offset:]
+			break // nothing after DATA
+		}
+
 		if offset+sectionLen > len(data) {
 			return nil, fmt.Errorf("section %q length %d exceeds file size", sectionName, sectionLen)
 		}
@@ -209,6 +214,18 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 	yOff := int(int16(binary.BigEndian.Uint16(data[offset+6 : offset+8])))
 	devW := int(binary.BigEndian.Uint16(data[offset+8 : offset+10]))
 
+	if w == 0 || h == 0 {
+		return &Glyph{
+			Width: w, Height: h,
+			XOffset: xOff, YOffset: yOff,
+			DeviceWidth: devW, Image: nil,
+		}, nil
+	}
+
+	if w > 4096 || h > 4096 {
+		return nil, fmt.Errorf("glyph dimensions %dx%d exceed sane limits", w, h)
+	}
+
 	rowBytes := int(math.Ceil(float64(w) / 8.0))
 	bitmapSize := rowBytes * h
 	bitmapStart := offset + headerSize
@@ -224,7 +241,7 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 	for row := 0; row < h; row++ {
 		for col := 0; col < w; col++ {
 			byteIdx := row*rowBytes + col/8
-			bitIdx := 7 - (col % 8) // MSB first
+			bitIdx := 7 - (col % 8)
 
 			if byteIdx < len(bitmap) && (bitmap[byteIdx]>>uint(bitIdx))&1 == 1 {
 				img.SetRGBA(col, row, color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff})
@@ -234,15 +251,13 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 		}
 	}
 
-	ebitenImg := ebiten.NewImageFromImage(img)
-
 	return &Glyph{
 		Width:       w,
 		Height:      h,
 		XOffset:     xOff,
 		YOffset:     yOff,
 		DeviceWidth: devW,
-		Image:       ebitenImg,
+		Image:       ebiten.NewImageFromImage(img),
 	}, nil
 }
 

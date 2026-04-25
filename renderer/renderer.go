@@ -158,6 +158,9 @@ func Run(theme *parser.Theme, themeDir string) error {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	ebiten.SetWindowSizeLimits(320, 240, -1, -1)
-
+	fmt.Printf("Init errors (%d):\n", len(game.initErrors))
+	for _, e := range game.initErrors {
+		fmt.Println(" ", e)
+	}
 	return ebiten.RunGame(game)
 }
