@@ -43,7 +43,7 @@ func DrawLabel(
 		// "left" or empty — x is already the left edge, no adjustment needed.
 	}
 
-	DrawText(dst, font, text, x, y+font.Ascent, clr)
+	DrawText(dst, font, text, x, y, clr)
 }
 
 func resolveText(text, id string) string {

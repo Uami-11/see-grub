@@ -91,8 +91,16 @@ func loadPF2(path string) (*PF2Font, error) {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 
-	if len(data) < 4 || string(data[:4]) != "PFF2" {
-		return nil, fmt.Errorf("not a valid PF2 file (bad magic bytes)")
+	if len(data) < 12 {
+		return nil, fmt.Errorf("file too short to be a valid PF2 font")
+	}
+
+	if string(data[0:4]) != "FILE" {
+		return nil, fmt.Errorf("not a valid PF2 file (expected FILE section, got %q)", string(data[0:4]))
+	}
+
+	if string(data[8:12]) != "PFF2" {
+		return nil, fmt.Errorf("not a valid PF2 file (expected PFF2 magic at offset 8, got %q)", string(data[8:12]))
 	}
 
 	font := &PF2Font{
@@ -100,7 +108,7 @@ func loadPF2(path string) (*PF2Font, error) {
 		Glyphs:   make(map[rune]*Glyph),
 	}
 
-	offset := 4 // skip past "PFF2" magic
+	offset := 12
 
 	var chixData []byte
 	var dataSection []byte
@@ -282,7 +290,7 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 			op := &ebiten.DrawImageOptions{}
 
 			drawX := float64(cursor + g.XOffset)
-			drawY := float64(y - g.Height - g.YOffset + font.Descent)
+			drawY := float64(y - g.YOffset)
 
 			op.GeoM.Translate(drawX, drawY)
 
@@ -328,31 +336,39 @@ func DebugFonts(themeDir string) ([]string, []error) {
 
 		base := filepath.Base(path)
 
-		// Check magic
-		if len(data) < 4 {
+		// Correct PF2 container validation
+		if len(data) < 12 {
 			lines = append(lines, fmt.Sprintf("  %-40s INVALID (too short)", base))
 			continue
 		}
-		magic := string(data[:4])
-		if magic != "PFF2" {
-			lines = append(lines, fmt.Sprintf("  %-40s INVALID magic: %q", base, magic))
+		if string(data[0:4]) != "FILE" {
+			lines = append(lines, fmt.Sprintf("  %-40s INVALID (missing FILE header: %q)", base, string(data[0:4])))
+			continue
+		}
+		if string(data[8:12]) != "PFF2" {
+			lines = append(lines, fmt.Sprintf("  %-40s INVALID (missing PFF2 magic: %q)", base, string(data[8:12])))
 			continue
 		}
 
+		// Start scanning AFTER FILE wrapper
+		offset := 12
+
 		// Scan for NAME section
 		name := ""
-		offset := 4
 		for offset+8 <= len(data) {
 			sectionName := string(data[offset : offset+4])
 			sectionLen := int(binary.BigEndian.Uint32(data[offset+4 : offset+8]))
 			offset += 8
+
 			if offset+sectionLen > len(data) {
-				break
+				break // malformed section
 			}
+
 			if sectionName == "NAME" {
 				name = strings.TrimRight(string(data[offset:offset+sectionLen]), "\x00")
 				break
 			}
+
 			offset += sectionLen
 		}
 
