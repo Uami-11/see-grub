@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Uami-11/see-grub/parser"
+	"github.com/Uami-11/see-grub/renderer"
 )
 
 const (
@@ -19,13 +21,14 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, "Usage: see-grub <theme directory> or <theme.txt>")
+		fmt.Fprintf(os.Stderr, "Usage: see-grub <theme-directory or theme.txt path>\n")
 		os.Exit(1)
 	}
 
 	themePath := resolveThemePath(os.Args[1])
 	if themePath == "" {
-		fmt.Fprintf(os.Stderr, "%serror%s could not find theme.txt in '%s'", colorRed, colorReset, os.Args[1])
+		fmt.Fprintf(os.Stderr, "%serror:%s could not find theme.txt in '%s'\n",
+			colorRed, colorReset, os.Args[1])
 		os.Exit(1)
 	}
 
@@ -35,35 +38,53 @@ func main() {
 	theme, errs := parser.Parse(themePath)
 
 	printErrorList(errs)
-
 	printTheme(theme)
 
 	if errs.HasErrors() {
+		fmt.Fprintf(os.Stderr, "\n%sCannot open preview: theme has errors (see above).%s\n",
+			colorRed, colorReset)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%sLaunching preview...%s\n", colorGreen, colorReset)
+	fmt.Printf("  Press ESC or Q to quit.\n\n")
+
+	themeDir := resolveThemeDir(themePath)
+	if err := renderer.Run(theme, themeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "%srenderer error: %v%s\n", colorRed, err, colorReset)
 		os.Exit(1)
 	}
 }
 
-func resolveThemePath(path string) string {
-	info, err := os.Stat(path)
+func resolveThemePath(arg string) string {
+	info, err := os.Stat(arg)
 	if err != nil {
 		return ""
 	}
-
 	if info.IsDir() {
-		candidate := path + "/theme.txt"
+		candidate := filepath.Join(arg, "theme.txt")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 		return ""
 	}
+	return arg
+}
 
-	// then is a file
-	return path
+func resolveThemeDir(themePath string) string {
+	info, err := os.Stat(themePath)
+	if err != nil {
+		return filepath.Dir(themePath)
+	}
+	if info.IsDir() {
+		return themePath
+	}
+	return filepath.Dir(themePath)
 }
 
 func printErrorList(errs *parser.ErrorList) {
 	if len(errs.Errors) == 0 {
-		fmt.Printf("%sNo errors or warnings%s\n\n", colorGreen, colorReset)
+		fmt.Printf("%s✓ No errors or warnings%s\n\n", colorGreen, colorReset)
 		return
 	}
 
@@ -72,29 +93,26 @@ func printErrorList(errs *parser.ErrorList) {
 
 	for _, err := range errs.Errors {
 		msg := err.Error()
-
 		if isWarning(err) {
 			warnings++
-			fmt.Printf("%s%s%s\n", colorYellow, msg, colorReset)
+			fmt.Printf("%s⚠ %s%s\n", colorYellow, msg, colorReset)
 		} else {
 			errors++
-			fmt.Printf("%s%s%s\n", colorRed, msg, colorReset)
+			fmt.Printf("%s✗ %s%s\n", colorRed, msg, colorReset)
 		}
 	}
 
 	fmt.Printf("\n")
 
 	if errors > 0 {
-		fmt.Printf("%s%d error(s)%s\n", colorRed, errors, colorReset)
+		fmt.Printf("%s%d error(s)%s", colorRed, errors, colorReset)
 	}
-
 	if warnings > 0 {
 		if errors > 0 {
 			fmt.Printf(", ")
 		}
 		fmt.Printf("%s%d warning(s)%s", colorYellow, warnings, colorReset)
 	}
-
 	fmt.Printf("\n\n")
 }
 
@@ -142,13 +160,14 @@ func printTheme(theme *parser.Theme) {
 	for i, c := range theme.Components {
 		printComponent(i, c)
 	}
+
+	fmt.Println()
 }
 
 func printComponent(index int, c parser.Component) {
 	fmt.Printf("\n  %s%s[%d] + %s%s (line %d)\n",
 		colorBold, colorCyan, index, string(c.Type), colorReset, c.Line)
 
-	// Geometry — shared by all.
 	if c.Left != "" || c.Top != "" {
 		fmt.Printf("    position : left=%s top=%s\n", orEmpty(c.Left), orEmpty(c.Top))
 	}
@@ -156,7 +175,6 @@ func printComponent(index int, c parser.Component) {
 		fmt.Printf("    size     : width=%s height=%s\n", orEmpty(c.Width), orEmpty(c.Height))
 	}
 
-	// Type-specific fields.
 	switch c.Type {
 	case parser.ComponentLabel:
 		field2("text", c.Text)
@@ -166,7 +184,6 @@ func printComponent(index int, c parser.Component) {
 		if c.ID != "" {
 			field2("id", c.ID)
 		}
-
 	case parser.ComponentBootMenu:
 		field2("item_font", c.ItemFont)
 		field2("item_color", c.ItemColor)
@@ -179,17 +196,14 @@ func printComponent(index int, c parser.Component) {
 		field2("icon_width", c.IconWidth)
 		field2("icon_height", c.IconHeight)
 		field2("item_icon_space", c.ItemIconSpace)
-
 	case parser.ComponentProgressBar:
 		field2("fg_color", c.FgColor)
 		field2("bg_color", c.BgColor)
 		field2("border_color", c.BorderColor)
-
 	case parser.ComponentImage:
 		field2("file", c.File)
 	}
 
-	// Children (vbox/hbox).
 	if len(c.Children) > 0 {
 		fmt.Printf("    children : %d\n", len(c.Children))
 		for j, child := range c.Children {
@@ -202,7 +216,6 @@ func header(title string) {
 	fmt.Printf("%s%s=== %s ===%s\n", colorBold, colorCyan, title, colorReset)
 }
 
-// field prints a top-level theme option, dimming it if empty.
 func field(name, value string) {
 	if value == "" {
 		fmt.Printf("  %-20s %s(not set)%s\n", name, colorYellow, colorReset)
@@ -211,8 +224,6 @@ func field(name, value string) {
 	}
 }
 
-// field2 prints a component property, skipping it entirely if empty.
-// Component fields are optional so we don't clutter output with "(not set)".
 func field2(name, value string) {
 	if value == "" {
 		return
@@ -227,11 +238,8 @@ func orEmpty(s string) string {
 	return s
 }
 
-// divider prints a horizontal rule for visual separation.
 func divider() {
 	fmt.Println(strings.Repeat("─", 60))
 }
 
-// keep divider available so the compiler doesn't complain,
-// we'll use it more in the renderer stage.
 var _ = divider
