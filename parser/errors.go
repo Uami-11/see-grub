@@ -195,7 +195,7 @@ func (errorList *ErrorList) HasErrors() bool {
 			}
 		}
 	}
-	return true
+	return false
 }
 
 func (errorList *ErrorList) Error() string {
