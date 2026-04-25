@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	_ "image/png" // register PNG decoder
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,22 +12,13 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// ---------------------------------------------------------------------------
-// Background
-// ---------------------------------------------------------------------------
-
-// Background holds the loaded desktop image and fallback color.
-// Either Image or Color is used — Image takes priority if both are set.
 type Background struct {
-	Image  *ebiten.Image // nil if no desktop-image was set or load failed
-	Color  color.RGBA    // used when Image is nil
+	Image  *ebiten.Image
+	Color  color.RGBA
 	Width  int
 	Height int
 }
 
-// LoadBackground loads the desktop-image PNG from the theme directory.
-// If the path is empty or the file fails to load, it falls back to
-// desktop-color. Either way it always returns a usable Background.
 func LoadBackground(themeDir, imagePath, colorStr string) (*Background, error) {
 	bg := &Background{
 		Color: FallbackColor(colorStr, ColorBlack),
@@ -50,9 +40,6 @@ func LoadBackground(themeDir, imagePath, colorStr string) (*Background, error) {
 	return bg, nil
 }
 
-// Draw fills the destination image with the background.
-// If a background image is set, it is scaled to fill dst exactly.
-// Otherwise the fallback color is used.
 func (bg *Background) Draw(dst *ebiten.Image) {
 	if bg.Image == nil {
 		dst.Fill(bg.Color)
@@ -64,10 +51,6 @@ func (bg *Background) Draw(dst *ebiten.Image) {
 
 	op := &ebiten.DrawImageOptions{}
 
-	// Scale the image to exactly fill the window.
-	// For GRUB themes the background is always designed to match the
-	// target resolution, so this is usually a 1:1 draw — but we scale
-	// correctly in case the preview window is ever resized.
 	scaleX := float64(w) / float64(srcW)
 	scaleY := float64(h) / float64(srcH)
 	op.GeoM.Scale(scaleX, scaleY)
@@ -75,40 +58,15 @@ func (bg *Background) Draw(dst *ebiten.Image) {
 	dst.DrawImage(bg.Image, op)
 }
 
-// ---------------------------------------------------------------------------
-// Pixmap style (9-slice scaling)
-// ---------------------------------------------------------------------------
-
-// PixmapStyle holds the 9 slices of a GRUB pixmap style pattern.
-// GRUB uses these for terminal-box borders and boot_menu item borders.
-//
-// A pixmap style is a glob like "terminal_box_*.png" that matches
-// exactly 8 files named with the following suffixes:
-//
-//	_c.png  — center          (scales in both X and Y)
-//	_e.png  — east edge       (scales in Y only)
-//	_n.png  — north edge      (scales in X only)
-//	_ne.png — north-east corner (no scaling)
-//	_nw.png — north-west corner (no scaling)
-//	_s.png  — south edge      (scales in X only)
-//	_se.png — south-east corner (no scaling)
-//	_sw.png — south-west corner (no scaling)
-//	_w.png  — west edge       (scales in Y only)
 type PixmapStyle struct {
-	// The 9 slice images. Any can be nil if the file was missing.
 	NW, N, NE *ebiten.Image
 	W, C, E   *ebiten.Image
 	SW, S, SE *ebiten.Image
 
-	// Corner size derived from the NW corner image dimensions.
-	// All corners are assumed to be the same size.
 	CornerW int
 	CornerH int
 }
 
-// LoadPixmapStyle loads a 9-slice pixmap style from a glob pattern.
-// The pattern should be something like "assets/terminal_box_*.png".
-// Files are matched by their suffix before the extension.
 func LoadPixmapStyle(themeDir, pattern string) (*PixmapStyle, error) {
 	resolved := resolvePath(themeDir, pattern)
 
@@ -117,18 +75,14 @@ func LoadPixmapStyle(themeDir, pattern string) (*PixmapStyle, error) {
 		return nil, fmt.Errorf("pixmap style %q matched no files", pattern)
 	}
 
-	// Sort so we process files in a consistent order.
 	sort.Strings(matches)
 
 	ps := &PixmapStyle{}
 
 	for _, path := range matches {
-		// Determine which slice this file is by its suffix.
-		// e.g. "terminal_box_nw.png" → suffix "nw"
 		base := filepath.Base(path)
 		name := strings.TrimSuffix(base, filepath.Ext(base))
 
-		// Find the last underscore to get the directional suffix.
 		idx := strings.LastIndex(name, "_")
 		if idx < 0 {
 			continue
@@ -171,9 +125,6 @@ func LoadPixmapStyle(themeDir, pattern string) (*PixmapStyle, error) {
 	return ps, nil
 }
 
-// Draw renders the 9-slice pixmap style to fill the given Rect on dst.
-// This is how GRUB draws terminal-box borders and menu item borders —
-// corners are drawn at their natural size, edges are stretched to fill.
 func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 	if ps == nil {
 		return
@@ -182,8 +133,6 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 	cw := ps.CornerW
 	ch := ps.CornerH
 
-	// If we have no corner size info, try to derive it from whatever
-	// corner image we do have.
 	if cw == 0 || ch == 0 {
 		for _, img := range []*ebiten.Image{ps.NW, ps.NE, ps.SW, ps.SE} {
 			if img != nil {
@@ -194,32 +143,26 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 		}
 	}
 
-	// Inner area dimensions (the stretchable region).
 	innerW := r.W - cw*2
 	innerH := r.H - ch*2
 
-	// --- Corners (no scaling) ---
 	drawSlice(dst, ps.NW, r.X, r.Y, 1, 1)
 	drawSlice(dst, ps.NE, r.X+r.W-cw, r.Y, 1, 1)
 	drawSlice(dst, ps.SW, r.X, r.Y+r.H-ch, 1, 1)
 	drawSlice(dst, ps.SE, r.X+r.W-cw, r.Y+r.H-ch, 1, 1)
 
-	// --- Edges (scaled in one axis) ---
-	// North and south edges scale horizontally.
 	if innerW > 0 {
 		scaleX := float64(innerW) / float64(imageWidth(ps.N))
 		drawSlice(dst, ps.N, r.X+cw, r.Y, scaleX, 1)
 		drawSlice(dst, ps.S, r.X+cw, r.Y+r.H-ch, scaleX, 1)
 	}
 
-	// West and east edges scale vertically.
 	if innerH > 0 {
 		scaleY := float64(innerH) / float64(imageHeight(ps.W))
 		drawSlice(dst, ps.W, r.X, r.Y+ch, 1, scaleY)
 		drawSlice(dst, ps.E, r.X+r.W-cw, r.Y+ch, 1, scaleY)
 	}
 
-	// --- Center (scales in both axes) ---
 	if innerW > 0 && innerH > 0 {
 		scaleX := float64(innerW) / float64(imageWidth(ps.C))
 		scaleY := float64(innerH) / float64(imageHeight(ps.C))
@@ -227,8 +170,6 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 	}
 }
 
-// drawSlice draws a single slice image at (x, y) with the given scale.
-// If img is nil, it does nothing — missing slices are silently skipped.
 func drawSlice(dst *ebiten.Image, img *ebiten.Image, x, y int, scaleX, scaleY float64) {
 	if img == nil {
 		return
@@ -239,12 +180,6 @@ func drawSlice(dst *ebiten.Image, img *ebiten.Image, x, y int, scaleX, scaleY fl
 	dst.DrawImage(img, op)
 }
 
-// ---------------------------------------------------------------------------
-// PNG loader
-// ---------------------------------------------------------------------------
-
-// loadPNG loads a PNG file from disk and returns an ebiten.Image.
-// Also returns the natural width and height of the image.
 func loadPNG(path string) (*ebiten.Image, int, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -265,12 +200,6 @@ func loadPNG(path string) (*ebiten.Image, int, int, error) {
 	return ebiten.NewImageFromImage(img), w, h, nil
 }
 
-// ---------------------------------------------------------------------------
-// Path helpers (package-level, used by other renderer files too)
-// ---------------------------------------------------------------------------
-
-// resolvePath resolves a theme-relative path to an absolute path.
-// If path is already absolute it is returned unchanged.
 func resolvePath(themeDir, path string) string {
 	if filepath.IsAbs(path) {
 		return path
@@ -278,8 +207,6 @@ func resolvePath(themeDir, path string) string {
 	return filepath.Join(themeDir, path)
 }
 
-// imageWidth safely returns the width of an ebiten.Image, or 1 if nil.
-// The "or 1" prevents divide-by-zero in scale calculations.
 func imageWidth(img *ebiten.Image) int {
 	if img == nil {
 		return 1
@@ -291,7 +218,6 @@ func imageWidth(img *ebiten.Image) int {
 	return w
 }
 
-// imageHeight safely returns the height of an ebiten.Image, or 1 if nil.
 func imageHeight(img *ebiten.Image) int {
 	if img == nil {
 		return 1
