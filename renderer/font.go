@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -233,7 +232,7 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 		return nil, fmt.Errorf("glyph dimensions %dx%d exceed sane limits", w, h)
 	}
 
-	rowBytes := int(math.Ceil(float64(w) / 8.0))
+	rowBytes := (w + 7) / 8
 	bitmapSize := rowBytes * h
 	bitmapStart := offset + headerSize
 
@@ -257,7 +256,6 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 			}
 		}
 	}
-
 	return &Glyph{
 		Width:       w,
 		Height:      h,
@@ -319,7 +317,7 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 			op := &ebiten.DrawImageOptions{}
 
 			drawX := float64(cursor + g.XOffset)
-			drawY := float64(y - g.YOffset)
+			drawY := float64(y - g.Height - g.YOffset)
 
 			op.GeoM.Translate(drawX, drawY)
 
