@@ -232,8 +232,8 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 		return nil, fmt.Errorf("glyph dimensions %dx%d exceed sane limits", w, h)
 	}
 
-	rowBytes := (w + 7) / 8
-	bitmapSize := rowBytes * h
+	totalBits := w * h
+	bitmapSize := (totalBits + 7) / 8
 	bitmapStart := offset + headerSize
 
 	if bitmapStart+bitmapSize > len(data) {
@@ -246,8 +246,9 @@ func decodeGlyph(data []byte, offset int) (*Glyph, error) {
 
 	for row := 0; row < h; row++ {
 		for col := 0; col < w; col++ {
-			byteIdx := row*rowBytes + col/8
-			bitIdx := 7 - (col % 8)
+			bitPos := row*w + col
+			byteIdx := bitPos / 8
+			bitIdx := 7 - (bitPos % 8)
 
 			if byteIdx < len(bitmap) && (bitmap[byteIdx]>>uint(bitIdx))&1 == 1 {
 				img.SetRGBA(col, row, color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff})
