@@ -127,29 +127,20 @@ func LoadPixmapStyle(themeDir, pattern string) (*PixmapStyle, error) {
 }
 
 func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
+	fmt.Printf("PixmapStyle.Draw: rect=%v\n", r)
 	if ps == nil {
 		return
 	}
 
-	// This border was created by splitting a 565×233 image into a 3×3 grid.
-	// Each piece is ~188×77 or ~188×78. The correct rendering scales all
-	// pieces uniformly to fit the item rect, preserving the 3×3 layout.
-	//
-	// Natural assembled size derived from the split tool:
 	const naturalW = 565
 	const naturalH = 233
 
-	// Each cell in the 3×3 grid
-	// col widths: 188, 189, 188 (left, center, right)
-	// row heights: 78, 77, 78   (top, middle, bottom)
 	cellW := [3]int{188, 189, 188}
 	cellH := [3]int{78, 77, 78}
 
-	// Scale factors to map natural size → actual item rect
 	scaleX := float64(r.W) / float64(naturalW)
 	scaleY := float64(r.H) / float64(naturalH)
 
-	// Scaled cell sizes
 	w0 := int(float64(cellW[0]) * scaleX)
 	w1 := int(float64(cellW[1]) * scaleX)
 	w2 := r.W - w0 - w1
@@ -158,17 +149,14 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 	h1 := int(float64(cellH[1]) * scaleY)
 	h2 := r.H - h0 - h1
 
-	// X positions of the 3 columns
 	x0 := r.X
 	x1 := r.X + w0
 	x2 := r.X + w0 + w1
 
-	// Y positions of the 3 rows
 	y0 := r.Y
 	y1 := r.Y + h0
 	y2 := r.Y + h0 + h1
 
-	// Scale each piece from its natural cell size to the scaled cell size
 	drawScaled := func(img *ebiten.Image, x, y, dstW, dstH int) {
 		if img == nil || dstW <= 0 || dstH <= 0 {
 			return
@@ -178,31 +166,18 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 		drawSlice(dst, img, x, y, sx, sy)
 	}
 
-	// Row 0 (top): NW, N, NE
 	drawScaled(ps.NW, x0, y0, w0, h0)
 	drawScaled(ps.N, x1, y0, w1, h0)
 	drawScaled(ps.NE, x2, y0, w2, h0)
 
-	// Row 1 (middle): W, C, E
 	drawScaled(ps.W, x0, y1, w0, h1)
 	drawScaled(ps.C, x1, y1, w1, h1)
 	drawScaled(ps.E, x2, y1, w2, h1)
 
-	// Row 2 (bottom): SW, S, SE
 	drawScaled(ps.SW, x0, y2, w0, h2)
 	drawScaled(ps.S, x1, y2, w1, h2)
 	drawScaled(ps.SE, x2, y2, w2, h2)
 }
-
-// func max(vals ...int) int {
-// 	m := 0
-// 	for _, v := range vals {
-// 		if v > m {
-// 			m = v
-// 		}
-// 	}
-// 	return m
-// }
 
 func drawSlice(dst *ebiten.Image, img *ebiten.Image, x, y int, scaleX, scaleY float64) {
 	if img == nil {

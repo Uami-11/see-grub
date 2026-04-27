@@ -121,16 +121,31 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 	}
 }
 
-func (bm *BootMenu) drawItem(
-	dst *ebiten.Image,
-	itemRect Rect,
-	text string,
-	selected bool,
-) {
-	if selected && bm.SelectedStyle != nil {
-		bm.SelectedStyle.Draw(dst, itemRect)
-	} else if !selected && bm.ItemStyle != nil {
-		bm.ItemStyle.Draw(dst, itemRect)
+func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, text string, selected bool) {
+	// Draw border centered on item, at natural aspect ratio scaled to item width
+	style := bm.ItemStyle
+	if selected {
+		style = bm.SelectedStyle
+	}
+
+	if style != nil {
+		// Natural border dimensions from the 565×233 composite
+		const naturalW, naturalH = 565, 233
+
+		// Scale to item width, preserve aspect ratio
+		borderW := itemRect.W
+		borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
+
+		// Center vertically on the item
+		borderY := itemRect.Y + (itemRect.H-borderH)/2
+
+		borderRect := Rect{
+			X: itemRect.X,
+			Y: borderY,
+			W: borderW,
+			H: borderH,
+		}
+		style.Draw(dst, borderRect)
 	}
 
 	if bm.ItemFont == nil {
@@ -143,10 +158,9 @@ func (bm *BootMenu) drawItem(
 	}
 
 	textW, textH := MeasureText(bm.ItemFont, text)
-
 	textX := itemRect.X + (itemRect.W-textW)/2
-
-	textY := itemRect.Y + (itemRect.H-textH)/2 + bm.ItemFont.Ascent
+	textY := itemRect.Y + (itemRect.H-textH)/2
+	_ = textW
 
 	DrawText(dst, bm.ItemFont, text, textX, textY, clr)
 }
