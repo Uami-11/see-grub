@@ -144,11 +144,9 @@ func (bm *BootMenu) drawItem(
 
 	textW, textH := MeasureText(bm.ItemFont, text)
 
-	textX := itemRect.X + bm.ItemPadding
+	textX := itemRect.X + (itemRect.W-textW)/2
 
 	textY := itemRect.Y + (itemRect.H-textH)/2 + bm.ItemFont.Ascent
-
-	_ = textW
 
 	DrawText(dst, bm.ItemFont, text, textX, textY, clr)
 }

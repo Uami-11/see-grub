@@ -310,9 +310,6 @@ func DrawText(dst *ebiten.Image, font *PF2Font, text string, x, y int, clr color
 
 		if g.Image != nil {
 			if first {
-				fmt.Printf("  glyph %q: w=%d h=%d xoff=%d yoff=%d devw=%d | drawX=%d drawY=%d (baseline y=%d ascent=%d)\n",
-					string(r), g.Width, g.Height, g.XOffset, g.YOffset, g.DeviceWidth,
-					cursor+g.XOffset, y-g.YOffset, y, font.Ascent)
 				first = false
 			}
 			op := &ebiten.DrawImageOptions{}
