@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"fmt"
 	"image/color"
 	"strconv"
 
@@ -95,56 +96,46 @@ func (bm *BootMenu) HandleInput() bool {
 
 func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 	c := bm.Component
-
 	menuRect := ResolveRect(c.Left, c.Top, c.Width, c.Height, screen)
 
+	const naturalW, naturalH = 565, 233
+	borderW := menuRect.W
+	borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
+
 	for i, entry := range MenuEntries {
-		var itemY int
-		if bm.ItemSpacing > 0 {
-			itemY = menuRect.Y + i*bm.ItemSpacing
-		} else {
-			itemY = menuRect.Y + i*(bm.ItemHeight+bm.ItemPadding)
+		// item_spacing is the distance between border tops
+		borderY := menuRect.Y + i*bm.ItemSpacing
+
+		borderRect := Rect{
+			X: menuRect.X,
+			Y: borderY,
+			W: borderW,
+			H: borderH,
 		}
 
+		// itemRect is centered within the border for text positioning
 		itemRect := Rect{
 			X: menuRect.X,
-			Y: itemY,
+			Y: borderY + (borderH-bm.ItemHeight)/2,
 			W: menuRect.W,
 			H: bm.ItemHeight,
 		}
 
-		if itemRect.Y+itemRect.H > menuRect.Y+menuRect.H {
+		if borderY > menuRect.Y+menuRect.H {
 			break
 		}
 
-		bm.drawItem(dst, itemRect, entry, i == bm.Selected)
+		bm.drawItem(dst, itemRect, borderRect, entry, i == bm.Selected)
 	}
 }
 
-func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, text string, selected bool) {
-	// Draw border centered on item, at natural aspect ratio scaled to item width
+func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, borderRect Rect, text string, selected bool) {
 	style := bm.ItemStyle
 	if selected {
 		style = bm.SelectedStyle
 	}
 
 	if style != nil {
-		// Natural border dimensions from the 565×233 composite
-		const naturalW, naturalH = 565, 233
-
-		// Scale to item width, preserve aspect ratio
-		borderW := itemRect.W
-		borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
-
-		// Center vertically on the item
-		borderY := itemRect.Y + (itemRect.H-borderH)/2
-
-		borderRect := Rect{
-			X: itemRect.X,
-			Y: borderY,
-			W: borderW,
-			H: borderH,
-		}
 		style.Draw(dst, borderRect)
 	}
 
@@ -158,10 +149,17 @@ func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, text string, sele
 	}
 
 	textW, textH := MeasureText(bm.ItemFont, text)
-	textX := itemRect.X + (itemRect.W-textW)/2
-	textY := itemRect.Y + (itemRect.H-textH)/2
-	_ = textW
+	// Text centered in the border's middle section (center row of 9-slice)
+	// The center row is 1/3 of the border height
+	centerRowTop := borderRect.Y + borderRect.H/3
+	centerRowH := borderRect.H / 3
+	textX := borderRect.X + (borderRect.W-textW)/2
+	textY := centerRowTop + (centerRowH-textH)/2 + bm.ItemFont.Ascent
 
+	_ = itemRect
+	// Temporarily in drawItem, before DrawText:
+	fmt.Printf("drawItem: borderRect=%v centerRowTop=%d centerRowH=%d textH=%d textY=%d\n",
+		borderRect, centerRowTop, centerRowH, textH, textY)
 	DrawText(dst, bm.ItemFont, text, textX, textY, clr)
 }
 
