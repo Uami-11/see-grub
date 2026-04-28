@@ -102,9 +102,14 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 	borderW := menuRect.W
 	borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
 
+	step := bm.ItemSpacing
+	if borderH > step {
+		step = borderH + 20
+	}
+
 	for i, entry := range MenuEntries {
 		// item_spacing is the distance between border tops
-		borderY := menuRect.Y + i*bm.ItemSpacing
+		borderY := menuRect.Y + i*step
 
 		borderRect := Rect{
 			X: menuRect.X,
