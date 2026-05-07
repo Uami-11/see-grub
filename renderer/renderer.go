@@ -26,7 +26,7 @@ type Game struct {
 	initErrors []string
 }
 
-func NewGame(theme *parser.Theme, themeDir string) (*Game, error) {
+func NewGame(theme *parser.Theme, themeDir string, gfxW, gfxH int) (*Game, error) {
 	g := &Game{
 		theme:    theme,
 		themeDir: themeDir,
@@ -39,6 +39,18 @@ func NewGame(theme *parser.Theme, themeDir string) (*Game, error) {
 	g.background = bg
 
 	if bg != nil && bg.Width > 0 && bg.Height > 0 {
+		g.screenW = bg.Width
+		g.screenH = bg.Height
+	} else {
+		g.screenW = 1920
+		g.screenH = 1080
+	}
+
+	if gfxW > 0 && gfxH > 0 {
+		// Override with explicit gfxmode
+		g.screenW = gfxW
+		g.screenH = gfxH
+	} else if bg != nil && bg.Width > 0 && bg.Height > 0 {
 		g.screenW = bg.Width
 		g.screenH = bg.Height
 	} else {
@@ -147,8 +159,8 @@ func (g *Game) drawErrorOverlay(screen *ebiten.Image) {
 	}
 }
 
-func Run(theme *parser.Theme, themeDir string) error {
-	game, err := NewGame(theme, themeDir)
+func Run(theme *parser.Theme, themeDir string, gfxW, gfxH int) error {
+	game, err := NewGame(theme, themeDir, gfxW, gfxH)
 	if err != nil {
 		return fmt.Errorf("initialising renderer: %w", err)
 	}

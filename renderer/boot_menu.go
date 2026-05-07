@@ -98,35 +98,36 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 	c := bm.Component
 	menuRect := ResolveRect(c.Left, c.Top, c.Width, c.Height, screen)
 
+	hasBorder := bm.ItemStyle != nil || bm.SelectedStyle != nil
+
 	const naturalW, naturalH = 565, 233
 	borderW := menuRect.W
 	borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
 
-	step := bm.ItemSpacing
-	if borderH > step {
-		step = borderH + 20
-	}
-
 	for i, entry := range MenuEntries {
-		// item_spacing is the distance between border tops
-		borderY := menuRect.Y + i*step
+		var itemRect, borderRect Rect
 
-		borderRect := Rect{
-			X: menuRect.X,
-			Y: borderY,
-			W: borderW,
-			H: borderH,
+		if hasBorder {
+			// Space borders so they don't overlap — use max of ItemSpacing and borderH
+			step := bm.ItemSpacing
+			if borderH > step {
+				step = borderH
+			}
+			borderY := menuRect.Y + i*step
+			borderRect = Rect{X: menuRect.X, Y: borderY, W: borderW, H: borderH}
+			itemRect = Rect{
+				X: menuRect.X,
+				Y: borderY + (borderH-bm.ItemHeight)/2,
+				W: menuRect.W,
+				H: bm.ItemHeight,
+			}
+		} else {
+			itemY := menuRect.Y + i*(bm.ItemHeight+bm.ItemSpacing)
+			itemRect = Rect{X: menuRect.X, Y: itemY, W: menuRect.W, H: bm.ItemHeight}
+			borderRect = itemRect
 		}
 
-		// itemRect is centered within the border for text positioning
-		itemRect := Rect{
-			X: menuRect.X,
-			Y: borderY + (borderH-bm.ItemHeight)/2,
-			W: menuRect.W,
-			H: bm.ItemHeight,
-		}
-
-		if borderY > menuRect.Y+menuRect.H {
+		if itemRect.Y > menuRect.Y+menuRect.H {
 			break
 		}
 

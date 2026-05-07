@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Uami-11/see-grub/parser"
@@ -35,6 +36,19 @@ func main() {
 	fmt.Printf("%s%ssee-grub — theme diagnostics%s\n", colorBold, colorCyan, colorReset)
 	fmt.Printf("Parsing: %s\n\n", themePath)
 
+	// In main(), after resolving themePath, check for --gfxmode flag
+	var gfxW, gfxH int
+	for _, arg := range os.Args[2:] {
+		if strings.HasPrefix(arg, "--gfxmode=") {
+			val := strings.TrimPrefix(arg, "--gfxmode=")
+			parts := strings.Split(val, "x")
+			if len(parts) == 2 {
+				gfxW, _ = strconv.Atoi(parts[0])
+				gfxH, _ = strconv.Atoi(parts[1])
+			}
+		}
+	}
+
 	theme, errs := parser.Parse(themePath)
 
 	printErrorList(errs)
@@ -50,7 +64,7 @@ func main() {
 	fmt.Printf("  Press ESC or Q to quit.\n\n")
 
 	themeDir := resolveThemeDir(themePath)
-	if err := renderer.Run(theme, themeDir); err != nil {
+	if err := renderer.Run(theme, themeDir, gfxW, gfxH); err != nil {
 		fmt.Fprintf(os.Stderr, "%srenderer error: %v%s\n", colorRed, err, colorReset)
 		os.Exit(1)
 	}

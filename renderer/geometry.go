@@ -56,13 +56,13 @@ func ResolveDim(s string, reference int) int {
 		return reference + n
 	}
 
+	// In ResolveDim, change the negative prefix handler:
 	if strings.HasPrefix(s, "-") {
-		numStr := strings.TrimPrefix(s, "-")
-		n, err := strconv.Atoi(numStr)
+		n, err := strconv.Atoi(s) // parse the whole thing including minus
 		if err != nil {
 			return 0
 		}
-		return reference - n
+		return n // returns -92 directly
 	}
 
 	n, err := strconv.Atoi(s)
