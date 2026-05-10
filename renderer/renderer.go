@@ -139,6 +139,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	op := &ebiten.DrawImageOptions{}
+	op.Filter = ebiten.FilterNearest
 	scaleX := float64(g.screenW) / float64(g.designW)
 	scaleY := float64(g.screenH) / float64(g.designH)
 	op.GeoM.Scale(scaleX, scaleY)
