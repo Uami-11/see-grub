@@ -19,6 +19,9 @@ type Game struct {
 	screenW int
 	screenH int
 
+	designW int
+	designH int
+
 	background *Background
 	fonts      *FontRegistry
 
@@ -41,23 +44,19 @@ func NewGame(theme *parser.Theme, themeDir string, gfxW, gfxH int) (*Game, error
 	g.background = bg
 
 	if bg != nil && bg.Width > 0 && bg.Height > 0 {
-		g.screenW = bg.Width
-		g.screenH = bg.Height
+		g.designW = bg.Width
+		g.designH = bg.Height
 	} else {
-		g.screenW = 1920
-		g.screenH = 1080
+		g.designW = 1920
+		g.designH = 1080
 	}
 
 	if gfxW > 0 && gfxH > 0 {
-		// Override with explicit gfxmode
 		g.screenW = gfxW
 		g.screenH = gfxH
-	} else if bg != nil && bg.Width > 0 && bg.Height > 0 {
-		g.screenW = bg.Width
-		g.screenH = bg.Height
 	} else {
-		g.screenW = 1920
-		g.screenH = 1080
+		g.screenW = g.designW
+		g.screenH = g.designH
 	}
 
 	fonts, fontErrs := NewFontRegistry(themeDir)
@@ -107,23 +106,22 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.background.Draw(screen)
 
-	termLeft := ResolveDim(g.theme.TerminalLeft, g.screenW)
-	termTop := ResolveDim(g.theme.TerminalTop, g.screenH)
+	// Render components to offscreen at design resolution,
+	// then scale to screen so positions adapt to --gfxmode
+	offscreen := ebiten.NewImage(g.designW, g.designH)
 
-	// Components are positioned relative to terminal origin
-	// Shift the effective screen origin by terminal offset
-	screenDims := Dimensions{Width: g.screenW, Height: g.screenH}
+	termLeft := ResolveDim(g.theme.TerminalLeft, g.designW)
+	termTop := ResolveDim(g.theme.TerminalTop, g.designH)
 
-	// Create an offset sub-image for rendering components
-	// For now, apply offset via a translated draw target
+	screenDims := Dimensions{Width: g.designW, Height: g.designH}
+
 	for _, c := range g.theme.Components {
 		switch c.Type {
 		case parser.ComponentLabel:
-			// Adjust component positions by terminal offset
 			adjusted := c
 			adjusted.Left = shiftDim(c.Left, termLeft)
 			adjusted.Top = shiftDim(c.Top, termTop)
-			DrawLabel(screen, adjusted, g.fonts, screenDims)
+			DrawLabel(offscreen, adjusted, g.fonts, screenDims)
 
 		case parser.ComponentBootMenu:
 			for _, bm := range g.bootMenus {
@@ -133,12 +131,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 					adjusted.Top = shiftDim(bm.Component.Top, termTop)
 					bmCopy := *bm
 					bmCopy.Component = adjusted
-					bmCopy.Draw(screen, screenDims)
+					bmCopy.Draw(offscreen, screenDims)
 					break
 				}
 			}
 		}
 	}
+
+	op := &ebiten.DrawImageOptions{}
+	scaleX := float64(g.screenW) / float64(g.designW)
+	scaleY := float64(g.screenH) / float64(g.designH)
+	op.GeoM.Scale(scaleX, scaleY)
+	screen.DrawImage(offscreen, op)
 
 	if len(g.initErrors) > 0 {
 		g.drawErrorOverlay(screen)
