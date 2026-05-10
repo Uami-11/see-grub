@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -103,19 +105,35 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screenDims := Dimensions{Width: g.screenW, Height: g.screenH}
-
 	g.background.Draw(screen)
 
+	termLeft := ResolveDim(g.theme.TerminalLeft, g.screenW)
+	termTop := ResolveDim(g.theme.TerminalTop, g.screenH)
+
+	// Components are positioned relative to terminal origin
+	// Shift the effective screen origin by terminal offset
+	screenDims := Dimensions{Width: g.screenW, Height: g.screenH}
+
+	// Create an offset sub-image for rendering components
+	// For now, apply offset via a translated draw target
 	for _, c := range g.theme.Components {
 		switch c.Type {
 		case parser.ComponentLabel:
-			DrawLabel(screen, c, g.fonts, screenDims)
+			// Adjust component positions by terminal offset
+			adjusted := c
+			adjusted.Left = shiftDim(c.Left, termLeft)
+			adjusted.Top = shiftDim(c.Top, termTop)
+			DrawLabel(screen, adjusted, g.fonts, screenDims)
 
 		case parser.ComponentBootMenu:
 			for _, bm := range g.bootMenus {
 				if bm.Component.Line == c.Line {
-					bm.Draw(screen, screenDims)
+					adjusted := bm.Component
+					adjusted.Left = shiftDim(bm.Component.Left, termLeft)
+					adjusted.Top = shiftDim(bm.Component.Top, termTop)
+					bmCopy := *bm
+					bmCopy.Component = adjusted
+					bmCopy.Draw(screen, screenDims)
 					break
 				}
 			}
@@ -125,6 +143,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if len(g.initErrors) > 0 {
 		g.drawErrorOverlay(screen)
 	}
+}
+
+func shiftDim(dim string, offset int) string {
+	if offset == 0 || dim == "" {
+		return dim
+	}
+	// Only shift absolute pixel values, not percentages
+	if strings.HasSuffix(dim, "%") {
+		return dim
+	}
+	n, err := strconv.Atoi(dim)
+	if err != nil {
+		return dim
+	}
+	return strconv.Itoa(n + offset)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -165,14 +198,17 @@ func Run(theme *parser.Theme, themeDir string, gfxW, gfxH int) error {
 		return fmt.Errorf("initialising renderer: %w", err)
 	}
 
-	ebiten.SetWindowSize(game.screenW, game.screenH)
 	ebiten.SetWindowTitle("see-grub — " + themeDir)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-
 	ebiten.SetWindowSizeLimits(320, 240, -1, -1)
+
+	// Start at logical resolution — Ebitengine scales to window size
+	// The user can resize/maximize to see the theme at full scale
+	ebiten.SetWindowSize(game.screenW, game.screenH)
 	fmt.Printf("Init errors (%d):\n", len(game.initErrors))
 	for _, e := range game.initErrors {
 		fmt.Println(" ", e)
 	}
+
 	return ebiten.RunGame(game)
 }

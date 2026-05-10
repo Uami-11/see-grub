@@ -41,6 +41,8 @@ func main() {
 	for _, arg := range os.Args[2:] {
 		if strings.HasPrefix(arg, "--gfxmode=") {
 			val := strings.TrimPrefix(arg, "--gfxmode=")
+			// Strip ,auto or ,keep suffixes
+			val = strings.Split(val, ",")[0]
 			parts := strings.Split(val, "x")
 			if len(parts) == 2 {
 				gfxW, _ = strconv.Atoi(parts[0])

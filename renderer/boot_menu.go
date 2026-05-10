@@ -1,9 +1,11 @@
 package renderer
 
 import (
-	"fmt"
 	"image/color"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -35,6 +37,12 @@ type BootMenu struct {
 
 	// Navigation state
 	Selected int // index into MenuEntries, 0-based
+
+	// Icons
+	Icons     map[string]*ebiten.Image
+	IconW     int
+	IconH     int
+	IconSpace int
 }
 
 func NewBootMenu(
@@ -65,6 +73,18 @@ func NewBootMenu(
 			bm.SelectedStyle = style
 		}
 	}
+
+	// --- Icons ---
+	bm.Icons = loadIcons(themeDir)
+	bm.IconW = ResolveDim(c.IconWidth, bm.ItemHeight)
+	if bm.IconW <= 0 {
+		bm.IconW = parseIntOrDefault(c.IconWidth, 32)
+	}
+	bm.IconH = ResolveDim(c.IconHeight, bm.ItemHeight)
+	if bm.IconH <= 0 {
+		bm.IconH = parseIntOrDefault(c.IconHeight, 32)
+	}
+	bm.IconSpace = parseIntOrDefault(c.ItemIconSpace, 8)
 
 	// --- Dimensions ---
 	bm.ItemHeight = parseIntOrDefault(c.ItemHeight, 40)
@@ -154,18 +174,27 @@ func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, borderRect Rect, 
 		clr = bm.SelectedItemColor
 	}
 
-	textW, textH := MeasureText(bm.ItemFont, text)
-	// Text centered in the border's middle section (center row of 9-slice)
-	// The center row is 1/3 of the border height
+	iconX := itemRect.X + bm.ItemPadding
+	iconY := itemRect.Y + (itemRect.H-bm.IconH)/2
+
+	textOffset := 0
+	iconKey := firstWordLowercased(text)
+	if icon, ok := bm.Icons[iconKey]; ok && bm.IconW > 0 && bm.IconH > 0 {
+		op := &ebiten.DrawImageOptions{}
+		sx := float64(bm.IconW) / float64(icon.Bounds().Dx())
+		sy := float64(bm.IconH) / float64(icon.Bounds().Dy())
+		op.GeoM.Scale(sx, sy)
+		op.GeoM.Translate(float64(iconX), float64(iconY))
+		dst.DrawImage(icon, op)
+		textOffset = bm.IconW + bm.IconSpace
+	}
+
+	_, textH := MeasureText(bm.ItemFont, text)
 	centerRowTop := borderRect.Y + borderRect.H/3
 	centerRowH := borderRect.H / 3
-	textX := borderRect.X + (borderRect.W-textW)/2
+	textX := borderRect.X + textOffset + bm.ItemPadding
 	textY := centerRowTop + (centerRowH-textH)/2 + bm.ItemFont.Ascent
 
-	_ = itemRect
-	// Temporarily in drawItem, before DrawText:
-	fmt.Printf("drawItem: borderRect=%v centerRowTop=%d centerRowH=%d textH=%d textY=%d\n",
-		borderRect, centerRowTop, centerRowH, textH, textY)
 	DrawText(dst, bm.ItemFont, text, textX, textY, clr)
 }
 
@@ -178,4 +207,34 @@ func parseIntOrDefault(s string, defaultVal int) int {
 		return defaultVal
 	}
 	return n
+}
+
+func loadIcons(themeDir string) map[string]*ebiten.Image {
+	iconsDir := filepath.Join(themeDir, "icons")
+	entries, err := os.ReadDir(iconsDir)
+	if err != nil {
+		return nil
+	}
+	icons := make(map[string]*ebiten.Image)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".png") {
+			continue
+		}
+		stem := strings.TrimSuffix(name, ".png")
+		img, _, _, err := loadPNG(filepath.Join(iconsDir, name))
+		if err != nil {
+			continue
+		}
+		icons[stem] = img
+	}
+	return icons
+}
+
+func firstWordLowercased(s string) string {
+	parts := strings.SplitN(s, " ", 2)
+	return strings.ToLower(parts[0])
 }
