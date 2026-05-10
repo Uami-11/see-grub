@@ -127,35 +127,12 @@ func LoadPixmapStyle(themeDir, pattern string) (*PixmapStyle, error) {
 }
 
 func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
-	fmt.Printf("PixmapStyle.Draw: rect=%v\n", r)
 	if ps == nil {
 		return
 	}
 
-	const naturalW = 565
-	const naturalH = 233
-
-	cellW := [3]int{188, 189, 188}
-	cellH := [3]int{78, 77, 78}
-
-	scaleX := float64(r.W) / float64(naturalW)
-	scaleY := float64(r.H) / float64(naturalH)
-
-	w0 := int(float64(cellW[0]) * scaleX)
-	w1 := int(float64(cellW[1]) * scaleX)
-	w2 := r.W - w0 - w1
-
-	h0 := int(float64(cellH[0]) * scaleY)
-	h1 := int(float64(cellH[1]) * scaleY)
-	h2 := r.H - h0 - h1
-
-	x0 := r.X
-	x1 := r.X + w0
-	x2 := r.X + w0 + w1
-
-	y0 := r.Y
-	y1 := r.Y + h0
-	y2 := r.Y + h0 + h1
+	cw := ps.CornerW
+	ch := ps.CornerH
 
 	drawScaled := func(img *ebiten.Image, x, y, dstW, dstH int) {
 		if img == nil || dstW <= 0 || dstH <= 0 {
@@ -166,17 +143,20 @@ func (ps *PixmapStyle) Draw(dst *ebiten.Image, r Rect) {
 		drawSlice(dst, img, x, y, sx, sy)
 	}
 
-	drawScaled(ps.NW, x0, y0, w0, h0)
-	drawScaled(ps.N, x1, y0, w1, h0)
-	drawScaled(ps.NE, x2, y0, w2, h0)
+	// Corners at native corner size
+	drawScaled(ps.NW, r.X, r.Y, cw, ch)
+	drawScaled(ps.NE, r.X+r.W-cw, r.Y, cw, ch)
+	drawScaled(ps.SW, r.X, r.Y+r.H-ch, cw, ch)
+	drawScaled(ps.SE, r.X+r.W-cw, r.Y+r.H-ch, cw, ch)
 
-	drawScaled(ps.W, x0, y1, w0, h1)
-	drawScaled(ps.C, x1, y1, w1, h1)
-	drawScaled(ps.E, x2, y1, w2, h1)
+	// Edges stretch between corners
+	drawScaled(ps.N, r.X+cw, r.Y, r.W-cw*2, ch)
+	drawScaled(ps.S, r.X+cw, r.Y+r.H-ch, r.W-cw*2, ch)
+	drawScaled(ps.W, r.X, r.Y+ch, cw, r.H-ch*2)
+	drawScaled(ps.E, r.X+r.W-cw, r.Y+ch, cw, r.H-ch*2)
 
-	drawScaled(ps.SW, x0, y2, w0, h2)
-	drawScaled(ps.S, x1, y2, w1, h2)
-	drawScaled(ps.SE, x2, y2, w2, h2)
+	// Center fills remaining area
+	drawScaled(ps.C, r.X+cw, r.Y+ch, r.W-cw*2, r.H-ch*2)
 }
 
 func drawSlice(dst *ebiten.Image, img *ebiten.Image, x, y int, scaleX, scaleY float64) {

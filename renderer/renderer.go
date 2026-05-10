@@ -12,6 +12,11 @@ import (
 	"github.com/Uami-11/see-grub/parser"
 )
 
+type loadedImage struct {
+	Component parser.Component
+	Image     *ebiten.Image
+}
+
 type Game struct {
 	theme    *parser.Theme
 	themeDir string
@@ -27,6 +32,7 @@ type Game struct {
 
 	labels    []parser.Component
 	bootMenus []*BootMenu
+	images    []loadedImage
 
 	initErrors []string
 }
@@ -84,6 +90,11 @@ func (g *Game) buildComponents(components []parser.Component) {
 			g.labels = append(g.labels, c)
 
 		case parser.ComponentImage:
+			path := resolvePath(g.themeDir, c.File)
+			img, _, _, err := loadPNG(path)
+			if err == nil {
+				g.images = append(g.images, loadedImage{Component: c, Image: img})
+			}
 
 		case parser.ComponentVBox, parser.ComponentHBox:
 			g.buildComponents(c.Children)
@@ -132,6 +143,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 					bmCopy := *bm
 					bmCopy.Component = adjusted
 					bmCopy.Draw(offscreen, screenDims)
+					break
+				}
+			}
+
+		case parser.ComponentImage:
+			for _, entry := range g.images {
+				if entry.Component.Line == c.Line {
+					adjusted := entry.Component
+					adjusted.Left = shiftDim(adjusted.Left, termLeft)
+					adjusted.Top = shiftDim(adjusted.Top, termTop)
+					drawImage(offscreen, entry.Image, adjusted, screenDims)
 					break
 				}
 			}
@@ -195,6 +217,23 @@ func (g *Game) drawErrorOverlay(screen *ebiten.Image) {
 			DrawText(screen, termFont, "✗ "+msg, x, y, ColorWhite)
 		}
 	}
+}
+
+func drawImage(dst *ebiten.Image, img *ebiten.Image, c parser.Component, screen Dimensions) {
+	rect := ResolveRect(c.Left, c.Top, c.Width, c.Height, screen)
+	if rect.W <= 0 {
+		rect.W = img.Bounds().Dx()
+	}
+	if rect.H <= 0 {
+		rect.H = img.Bounds().Dy()
+	}
+
+	op := &ebiten.DrawImageOptions{}
+	sx := float64(rect.W) / float64(img.Bounds().Dx())
+	sy := float64(rect.H) / float64(img.Bounds().Dy())
+	op.GeoM.Scale(sx, sy)
+	op.GeoM.Translate(float64(rect.X), float64(rect.Y))
+	dst.DrawImage(img, op)
 }
 
 func Run(theme *parser.Theme, themeDir string, gfxW, gfxH int) error {

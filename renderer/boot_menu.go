@@ -120,30 +120,25 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 
 	hasBorder := bm.ItemStyle != nil || bm.SelectedStyle != nil
 
-	const naturalW, naturalH = 565, 233
-	borderW := menuRect.W
-	borderH := int(float64(borderW) / float64(naturalW) * float64(naturalH))
-
 	for i, entry := range MenuEntries {
-		var itemRect, borderRect Rect
+		itemY := menuRect.Y + i*(bm.ItemHeight+bm.ItemSpacing)
+		itemRect := Rect{X: menuRect.X, Y: itemY, W: menuRect.W, H: bm.ItemHeight}
 
+		var borderRect Rect
 		if hasBorder {
-			// Space borders so they don't overlap — use max of ItemSpacing and borderH
-			step := bm.ItemSpacing
-			if borderH > step {
-				step = borderH
+			var cornerH int
+			if bm.ItemStyle != nil && bm.ItemStyle.CornerH > 0 {
+				cornerH = bm.ItemStyle.CornerH
+			} else if bm.SelectedStyle != nil && bm.SelectedStyle.CornerH > 0 {
+				cornerH = bm.SelectedStyle.CornerH
 			}
-			borderY := menuRect.Y + i*step
-			borderRect = Rect{X: menuRect.X, Y: borderY, W: borderW, H: borderH}
-			itemRect = Rect{
+			borderRect = Rect{
 				X: menuRect.X,
-				Y: borderY + (borderH-bm.ItemHeight)/2,
+				Y: itemY - cornerH,
 				W: menuRect.W,
-				H: bm.ItemHeight,
+				H: bm.ItemHeight + cornerH*2,
 			}
 		} else {
-			itemY := menuRect.Y + i*(bm.ItemHeight+bm.ItemSpacing)
-			itemRect = Rect{X: menuRect.X, Y: itemY, W: menuRect.W, H: bm.ItemHeight}
 			borderRect = itemRect
 		}
 
@@ -189,10 +184,16 @@ func (bm *BootMenu) drawItem(dst *ebiten.Image, itemRect Rect, borderRect Rect, 
 		textOffset = bm.IconW + bm.IconSpace
 	}
 
-	_, textH := MeasureText(bm.ItemFont, text)
+	textW, textH := MeasureText(bm.ItemFont, text)
 	centerRowTop := borderRect.Y + borderRect.H/3
 	centerRowH := borderRect.H / 3
-	textX := borderRect.X + textOffset + bm.ItemPadding
+
+	var textX int
+	if textOffset > 0 {
+		textX = borderRect.X + textOffset + bm.ItemPadding
+	} else {
+		textX = borderRect.X + (borderRect.W-textW)/2
+	}
 	textY := centerRowTop + (centerRowH-textH)/2 + bm.ItemFont.Ascent
 
 	DrawText(dst, bm.ItemFont, text, textX, textY, clr)
