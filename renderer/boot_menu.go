@@ -131,18 +131,25 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 
 	hasBorder := bm.ItemStyle != nil || bm.SelectedStyle != nil
 
+	// Determine corner height once so we can offset the first item correctly.
+	cornerH := 0
+	if hasBorder {
+		if bm.ItemStyle != nil && bm.ItemStyle.CornerH > 0 {
+			cornerH = bm.ItemStyle.CornerH
+		} else if bm.SelectedStyle != nil && bm.SelectedStyle.CornerH > 0 {
+			cornerH = bm.SelectedStyle.CornerH
+		}
+	}
+
 	for i, entry := range MenuEntries {
-		itemY := menuRect.Y + i*(bm.ItemHeight+bm.ItemSpacing)
+		// Start the first item's centre at menuRect.Y + cornerH so the border's
+		// top corner lands exactly at menuRect.Y and doesn't bleed into whatever
+		// is above the menu.
+		itemY := menuRect.Y + cornerH + i*(bm.ItemHeight+bm.ItemSpacing)
 		itemRect := Rect{X: menuRect.X, Y: itemY, W: menuRect.W, H: bm.ItemHeight}
 
 		var borderRect Rect
 		if hasBorder {
-			var cornerH int
-			if bm.ItemStyle != nil && bm.ItemStyle.CornerH > 0 {
-				cornerH = bm.ItemStyle.CornerH
-			} else if bm.SelectedStyle != nil && bm.SelectedStyle.CornerH > 0 {
-				cornerH = bm.SelectedStyle.CornerH
-			}
 			borderRect = Rect{
 				X: menuRect.X,
 				Y: itemY - cornerH,
