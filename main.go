@@ -212,6 +212,7 @@ func printComponent(index int, c parser.Component) {
 		field2("icon_width", c.IconWidth)
 		field2("icon_height", c.IconHeight)
 		field2("item_icon_space", c.ItemIconSpace)
+		field2("menu_pixmap_style", c.MenuPixmapStyle)
 	case parser.ComponentProgressBar:
 		field2("fg_color", c.FgColor)
 		field2("bg_color", c.BgColor)

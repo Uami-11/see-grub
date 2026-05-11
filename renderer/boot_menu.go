@@ -25,6 +25,7 @@ type BootMenu struct {
 	ItemFont      *PF2Font
 	ItemStyle     *PixmapStyle
 	SelectedStyle *PixmapStyle
+	MenuStyle     *PixmapStyle
 
 	// Resolved colors
 	ItemColor         color.RGBA
@@ -73,6 +74,12 @@ func NewBootMenu(
 			bm.SelectedStyle = style
 		}
 	}
+	if c.MenuPixmapStyle != "" {
+		style, err := LoadPixmapStyle(themeDir, c.MenuPixmapStyle)
+		if err == nil {
+			bm.MenuStyle = style
+		}
+	}
 
 	// --- Icons ---
 	bm.Icons = loadIcons(themeDir)
@@ -117,6 +124,10 @@ func (bm *BootMenu) HandleInput() bool {
 func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 	c := bm.Component
 	menuRect := ResolveRect(c.Left, c.Top, c.Width, c.Height, screen)
+
+	if bm.MenuStyle != nil {
+		bm.MenuStyle.Draw(dst, menuRect)
+	}
 
 	hasBorder := bm.ItemStyle != nil || bm.SelectedStyle != nil
 

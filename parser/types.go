@@ -61,6 +61,7 @@ type Component struct {
 	IconWidth               string
 	IconHeight              string
 	ItemIconSpace           string
+	MenuPixmapStyle         string
 
 	// Progress bar fields
 	FgColor     string

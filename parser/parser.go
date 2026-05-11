@@ -303,6 +303,8 @@ func (parsr *Parser) applyBootMenuProperty(key, value string) {
 		parsr.currentBlock.IconHeight = value
 	case "item_icon_space":
 		parsr.currentBlock.ItemIconSpace = value
+	case "menu_pixmap_style":
+		parsr.currentBlock.MenuPixmapStyle = value
 	default:
 		parsr.warnUnknown(key, "boot_menu")
 	}
@@ -369,6 +371,9 @@ func (parsr *Parser) validate(theme *Theme) {
 			}
 			if c.SelectedItemPixmapStyle != "" {
 				parsr.checkGlob("selected_item_pixmap_style", c.SelectedItemPixmapStyle, c.Line)
+			}
+			if c.MenuPixmapStyle != "" {
+				parsr.checkGlob("menu_pixmap_style", c.MenuPixmapStyle, c.Line)
 			}
 		case ComponentImage:
 			if c.File != "" {
