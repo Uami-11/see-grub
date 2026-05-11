@@ -90,7 +90,7 @@ type ErrUnknownComponent struct {
 func (err ErrUnknownComponent) Error() string {
 	return fmt.Sprintf(
 		"%s unknown component type: '%s'.\n"+
-			"  Known types: label, boot_menu, progress_bar, vbox, hbox, image.",
+			"  Known types: label, boot_menu, progress_bar, vbox, hbox, canvas, image.",
 		err.location(), err.Name,
 	)
 }

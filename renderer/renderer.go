@@ -29,7 +29,6 @@ type Game struct {
 	background *Background
 	fonts      *FontRegistry
 
-	labels    []parser.Component
 	bootMenus []*BootMenu
 	images    []loadedImage
 
@@ -78,15 +77,9 @@ func NewGame(theme *parser.Theme, themeDir string, gfxW, gfxH int) (*Game, error
 func (g *Game) buildComponents(components []parser.Component) {
 	for _, c := range components {
 		switch c.Type {
-		case parser.ComponentLabel:
-			g.labels = append(g.labels, c)
-
 		case parser.ComponentBootMenu:
 			bm := NewBootMenu(c, g.fonts, g.themeDir)
 			g.bootMenus = append(g.bootMenus, bm)
-
-		case parser.ComponentProgressBar:
-			g.labels = append(g.labels, c)
 
 		case parser.ComponentImage:
 			path := resolvePath(g.themeDir, c.File)
@@ -95,7 +88,7 @@ func (g *Game) buildComponents(components []parser.Component) {
 				g.images = append(g.images, loadedImage{Component: c, Image: img})
 			}
 
-		case parser.ComponentVBox, parser.ComponentHBox:
+		case parser.ComponentVBox, parser.ComponentHBox, parser.ComponentCanvas:
 			g.buildComponents(c.Children)
 		}
 	}
@@ -129,34 +122,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// screenDims controls percentage resolution in child components.
 	screenDims := Dimensions{Width: termRect.W, Height: termRect.H}
 
-	for _, c := range g.theme.Components {
-		adjusted := c
-		adjusted.Left = strconv.Itoa(ResolveDim(c.Left, termRect.W) + termRect.X)
-		adjusted.Top = strconv.Itoa(ResolveDim(c.Top, termRect.H) + termRect.Y)
-
-		switch c.Type {
-		case parser.ComponentLabel:
-			DrawLabel(offscreen, adjusted, g.fonts, screenDims)
-
-		case parser.ComponentBootMenu:
-			for _, bm := range g.bootMenus {
-				if bm.Component.Line == c.Line {
-					bmCopy := *bm
-					bmCopy.Component = adjusted
-					bmCopy.Draw(offscreen, screenDims)
-					break
-				}
-			}
-
-		case parser.ComponentImage:
-			for _, entry := range g.images {
-				if entry.Component.Line == c.Line {
-					drawImage(offscreen, entry.Image, adjusted, screenDims)
-					break
-				}
-			}
-		}
-	}
+	g.drawComponents(offscreen, g.theme.Components, termRect, screenDims)
 
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
@@ -167,6 +133,43 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if len(g.initErrors) > 0 {
 		g.drawErrorOverlay(screen)
+	}
+}
+
+func (g *Game) drawComponents(dst *ebiten.Image, components []parser.Component, termRect Rect, screenDims Dimensions) {
+	for _, c := range components {
+		adjusted := c
+		adjusted.Left = strconv.Itoa(ResolveDim(c.Left, screenDims.Width) + termRect.X)
+		adjusted.Top = strconv.Itoa(ResolveDim(c.Top, screenDims.Height) + termRect.Y)
+
+		switch c.Type {
+		case parser.ComponentLabel:
+			DrawLabel(dst, adjusted, g.fonts, screenDims)
+
+		case parser.ComponentBootMenu:
+			for _, bm := range g.bootMenus {
+				if bm.Component.Line == c.Line {
+					bmCopy := *bm
+					bmCopy.Component = adjusted
+					bmCopy.Draw(dst, screenDims)
+					break
+				}
+			}
+
+		case parser.ComponentProgressBar:
+			DrawProgressBar(dst, adjusted, screenDims)
+
+		case parser.ComponentImage:
+			for _, entry := range g.images {
+				if entry.Component.Line == c.Line {
+					drawImage(dst, entry.Image, adjusted, screenDims)
+					break
+				}
+			}
+
+		case parser.ComponentVBox, parser.ComponentHBox, parser.ComponentCanvas:
+			g.drawComponents(dst, c.Children, termRect, screenDims)
+		}
 	}
 }
 

@@ -1,0 +1,48 @@
+package renderer
+
+import (
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"github.com/Uami-11/see-grub/parser"
+)
+
+const progressPct = 0.65
+
+func DrawProgressBar(dst *ebiten.Image, c parser.Component, screen Dimensions) {
+	rect := ResolveRect(c.Left, c.Top, c.Width, c.Height, screen)
+	if rect.W <= 0 || rect.H <= 0 {
+		return
+	}
+
+	fg := FallbackColor(c.FgColor, ColorWhite)
+	bg := FallbackColor(c.BgColor, color.RGBA{0x33, 0x33, 0x33, 0xff})
+	borderClr := FallbackColor(c.BorderColor, color.RGBA{})
+
+	if c.BorderColor != "" {
+		fillRect(dst, rect, borderClr)
+		rect = rect.Inset(1)
+		if rect.W <= 0 || rect.H <= 0 {
+			return
+		}
+	}
+
+	fillRect(dst, rect, bg)
+
+	fillW := int(float64(rect.W) * progressPct)
+	if fillW > 0 {
+		fillRect(dst, Rect{X: rect.X, Y: rect.Y, W: fillW, H: rect.H}, fg)
+	}
+}
+
+func fillRect(dst *ebiten.Image, r Rect, clr color.RGBA) {
+	if r.W <= 0 || r.H <= 0 {
+		return
+	}
+	img := ebiten.NewImage(r.W, r.H)
+	img.Fill(clr)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(r.X), float64(r.Y))
+	dst.DrawImage(img, op)
+}

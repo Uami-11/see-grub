@@ -160,6 +160,8 @@ func printTheme(theme *parser.Theme) {
 	header("Global Options")
 
 	field("title-text", theme.TitleText)
+	field("title-font", theme.TitleFont)
+	field("title-color", theme.TitleColor)
 	field("desktop-image", theme.DesktopImage)
 	field("desktop-color", theme.DesktopColor)
 	field("terminal-font", theme.TerminalFont)
@@ -169,6 +171,8 @@ func printTheme(theme *parser.Theme) {
 	field("terminal-width", theme.TerminalWidth)
 	field("terminal-height", theme.TerminalHeight)
 	field("terminal-border", theme.TerminalBorder)
+	field("terminal-background", theme.TerminalBackground)
+	field("terminal-foreground", theme.TerminalForeground)
 
 	fmt.Println()
 	header(fmt.Sprintf("Components (%d)", len(theme.Components)))
@@ -213,6 +217,10 @@ func printComponent(index int, c parser.Component) {
 		field2("icon_height", c.IconHeight)
 		field2("item_icon_space", c.ItemIconSpace)
 		field2("menu_pixmap_style", c.MenuPixmapStyle)
+		field2("scrollbar", c.Scrollbar)
+		field2("scrollbar_frame", c.ScrollbarFrame)
+		field2("scrollbar_thumb", c.ScrollbarThumb)
+		field2("menu_box_sw", c.MenuBoxSW)
 	case parser.ComponentProgressBar:
 		field2("fg_color", c.FgColor)
 		field2("bg_color", c.BgColor)

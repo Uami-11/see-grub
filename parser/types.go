@@ -7,15 +7,20 @@ type Theme struct {
 	DesktopColor string
 
 	// --- terminal values
-	TerminalBox    string
-	TerminalTop    string
-	TerminalLeft   string
-	TerminalWidth  string
-	TerminalHeight string
-	TerminalBorder string
-	TerminalFont   string
+	TerminalBox          string
+	TerminalTop          string
+	TerminalLeft         string
+	TerminalWidth        string
+	TerminalHeight       string
+	TerminalBorder       string
+	TerminalFont         string
+	TerminalBackground   string
+	TerminalForeground   string
 
 	TitleText  string
+	TitleFont  string
+	TitleColor string
+
 	Components []Component
 }
 
@@ -27,6 +32,7 @@ const (
 	ComponentProgressBar ComponentType = "progress_bar"
 	ComponentVBox        ComponentType = "vbox"
 	ComponentHBox        ComponentType = "hbox"
+	ComponentCanvas      ComponentType = "canvas"
 	ComponentImage       ComponentType = "image"
 )
 
@@ -62,6 +68,10 @@ type Component struct {
 	IconHeight              string
 	ItemIconSpace           string
 	MenuPixmapStyle         string
+	Scrollbar               string
+	ScrollbarFrame          string
+	ScrollbarThumb          string
+	MenuBoxSW               string
 
 	// Progress bar fields
 	FgColor     string

@@ -151,7 +151,7 @@ func (parsr *Parser) openBlock(line string) {
 
 	switch componentType {
 	case ComponentLabel, ComponentBootMenu, ComponentProgressBar,
-		ComponentVBox, ComponentHBox, ComponentImage:
+		ComponentVBox, ComponentHBox, ComponentCanvas, ComponentImage:
 		parsr.currentBlock = Component{
 			Type: componentType,
 			Line: parsr.currentLine,
@@ -178,6 +178,10 @@ func (parsr *Parser) applyGlobal(key, value string, theme *Theme) {
 	switch key {
 	case "title-text":
 		theme.TitleText = value
+	case "title-font":
+		theme.TitleFont = value
+	case "title-color":
+		theme.TitleColor = value
 	case "desktop-image":
 		theme.DesktopImage = value
 	case "desktop-color":
@@ -196,6 +200,10 @@ func (parsr *Parser) applyGlobal(key, value string, theme *Theme) {
 		theme.TerminalHeight = value
 	case "terminal-border":
 		theme.TerminalBorder = value
+	case "terminal-background":
+		theme.TerminalBackground = value
+	case "terminal-foreground":
+		theme.TerminalForeground = value
 	default:
 		parsr.errors.Add(ErrUnknownProperty{
 			ParseError: ParseError{
@@ -256,7 +264,7 @@ func (parsr *Parser) applyProperty(key, value string) {
 		parsr.applyProgressBarProperty(key, value)
 	case ComponentImage:
 		parsr.applyImageProperty(key, value)
-	case ComponentVBox, ComponentHBox:
+	case ComponentVBox, ComponentHBox, ComponentCanvas:
 		parsr.warnUnknown(key, string(parsr.currentBlock.Type))
 	default:
 	}
@@ -305,6 +313,14 @@ func (parsr *Parser) applyBootMenuProperty(key, value string) {
 		parsr.currentBlock.ItemIconSpace = value
 	case "menu_pixmap_style":
 		parsr.currentBlock.MenuPixmapStyle = value
+	case "scrollbar":
+		parsr.currentBlock.Scrollbar = value
+	case "scrollbar_frame":
+		parsr.currentBlock.ScrollbarFrame = value
+	case "scrollbar_thumb":
+		parsr.currentBlock.ScrollbarThumb = value
+	case "menu_box_sw":
+		parsr.currentBlock.MenuBoxSW = value
 	default:
 		parsr.warnUnknown(key, "boot_menu")
 	}

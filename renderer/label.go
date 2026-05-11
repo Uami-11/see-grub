@@ -31,14 +31,23 @@ func DrawLabel(
 
 	x := ResolveX(c.Left, screen)
 	y := ResolveY(c.Top, screen)
+	w := ResolveDim(c.Width, screen.Width)
 
 	textW, _ := MeasureText(font, text)
 
 	switch strings.ToLower(c.Align) {
 	case "center":
-		x = x - textW/2
+		if w > 0 {
+			x = x + (w-textW)/2
+		} else {
+			x = x - textW/2
+		}
 	case "right":
-		x = x - textW
+		if w > 0 {
+			x = x + w - textW
+		} else {
+			x = x - textW
+		}
 	default:
 		// "left" or empty — x is already the left edge, no adjustment needed.
 	}
@@ -48,7 +57,7 @@ func DrawLabel(
 
 func resolveText(text, id string) string {
 	if id == "__timeout__" {
-		return fmt.Sprintf(strings.ReplaceAll(text, "%d", "%d"), CountdownSeconds)
+		return fmt.Sprintf(text, CountdownSeconds)
 	}
 	return text
 }
