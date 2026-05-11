@@ -40,10 +40,8 @@ type ErrMissingTerminalBox struct {
 
 func (err ErrMissingTerminalBox) Error() string {
 	return fmt.Sprintf(
-		"%s background image '%s' cannot be composited: terminal-box is not set.\n"+
-			"  GRUB requires terminal-box to define the terminal region before it can\n"+
-			"  render a background image. Without it, GRUB falls back to text mode\n"+
-			"  and may report \"incorrect format\" for the background PNG.",
+		"%s background image '%s': terminal-box is not set.\n"+
+			"May report \"incorrect format\" for the background PNG.",
 		err.location(), err.DesktopImage,
 	)
 }

@@ -349,7 +349,7 @@ func (parsr *Parser) validate(theme *Theme) {
 			ParseError: ParseError{
 				File:     parsr.filePath,
 				Line:     0,
-				Severity: SeverityError,
+				Severity: SeverityWarning,
 			},
 			DesktopImage: theme.DesktopImage,
 		})
