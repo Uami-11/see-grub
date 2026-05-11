@@ -32,6 +32,9 @@ type Game struct {
 	bootMenus []*BootMenu
 	images    []loadedImage
 
+	offscreen *ebiten.Image
+	errPanel  *ebiten.Image
+
 	initErrors []string
 }
 
@@ -68,6 +71,8 @@ func NewGame(theme *parser.Theme, themeDir string, gfxW, gfxH int) (*Game, error
 		g.initErrors = append(g.initErrors, fmt.Sprintf("font: %v", err))
 	}
 	g.fonts = fonts
+
+	g.offscreen = ebiten.NewImage(g.designW, g.designH)
 
 	g.buildComponents(theme.Components)
 
@@ -109,9 +114,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.background.Draw(screen)
 
-	// Render components to offscreen at design resolution,
-	// then scale to screen so positions adapt to --gfxmode
-	offscreen := ebiten.NewImage(g.designW, g.designH)
+	g.offscreen.Clear()
 
 	termRect := ResolveTerminalRect(
 		g.theme.TerminalLeft, g.theme.TerminalTop,
@@ -122,14 +125,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// screenDims controls percentage resolution in child components.
 	screenDims := Dimensions{Width: termRect.W, Height: termRect.H}
 
-	g.drawComponents(offscreen, g.theme.Components, termRect, screenDims)
+	g.drawComponents(g.offscreen, g.theme.Components, termRect, screenDims)
 
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterNearest
 	scaleX := float64(g.screenW) / float64(g.designW)
 	scaleY := float64(g.screenH) / float64(g.designH)
 	op.GeoM.Scale(scaleX, scaleY)
-	screen.DrawImage(offscreen, op)
+	screen.DrawImage(g.offscreen, op)
 
 	if len(g.initErrors) > 0 {
 		g.drawErrorOverlay(screen)
@@ -186,12 +189,14 @@ func (g *Game) drawErrorOverlay(screen *ebiten.Image) {
 	panelX := padding
 	panelY := g.screenH - panelH - padding
 
-	overlay := ebiten.NewImage(panelW, panelH)
-	overlay.Fill(color.RGBA{R: 0x10, G: 0x00, B: 0x00, A: 0xcc})
+	if g.errPanel == nil || g.errPanel.Bounds().Dx() != panelW || g.errPanel.Bounds().Dy() != panelH {
+		g.errPanel = ebiten.NewImage(panelW, panelH)
+		g.errPanel.Fill(color.RGBA{R: 0x10, G: 0x00, B: 0x00, A: 0xcc})
+	}
 
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(panelX), float64(panelY))
-	screen.DrawImage(overlay, op)
+	screen.DrawImage(g.errPanel, op)
 
 	termFont := g.fonts.Lookup(g.theme.TerminalFont)
 

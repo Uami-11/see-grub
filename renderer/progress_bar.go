@@ -8,6 +8,13 @@ import (
 	"github.com/Uami-11/see-grub/parser"
 )
 
+var fillPixel *ebiten.Image
+
+func init() {
+	fillPixel = ebiten.NewImage(1, 1)
+	fillPixel.Fill(color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff})
+}
+
 const progressPct = 0.65
 
 func DrawProgressBar(dst *ebiten.Image, c parser.Component, screen Dimensions) {
@@ -40,9 +47,14 @@ func fillRect(dst *ebiten.Image, r Rect, clr color.RGBA) {
 	if r.W <= 0 || r.H <= 0 {
 		return
 	}
-	img := ebiten.NewImage(r.W, r.H)
-	img.Fill(clr)
 	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(float64(r.W), float64(r.H))
 	op.GeoM.Translate(float64(r.X), float64(r.Y))
-	dst.DrawImage(img, op)
+	op.ColorScale.Scale(
+		float32(clr.R)/255,
+		float32(clr.G)/255,
+		float32(clr.B)/255,
+		float32(clr.A)/255,
+	)
+	dst.DrawImage(fillPixel, op)
 }
