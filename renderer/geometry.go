@@ -38,38 +38,27 @@ func ResolveDim(s string, reference int) int {
 		return 0
 	}
 
-	if strings.HasSuffix(s, "%") {
-		pctStr := strings.TrimSuffix(s, "%")
+	result := 0
+
+	if idx := strings.Index(s, "%"); idx >= 0 {
+		pctStr := s[:idx]
 		pct, err := strconv.ParseFloat(pctStr, 64)
 		if err != nil {
 			return 0
 		}
-		return int(pct / 100.0 * float64(reference))
+		result = int(pct / 100.0 * float64(reference))
+		s = s[idx+1:] // remainder after "%"
 	}
 
-	if strings.HasPrefix(s, "+") {
-		numStr := strings.TrimPrefix(s, "+")
-		n, err := strconv.Atoi(numStr)
+	if s != "" {
+		offset, err := strconv.Atoi(s)
 		if err != nil {
-			return 0
+			return result
 		}
-		return reference + n
+		result += offset
 	}
 
-	// In ResolveDim, change the negative prefix handler:
-	if strings.HasPrefix(s, "-") {
-		n, err := strconv.Atoi(s) // parse the whole thing including minus
-		if err != nil {
-			return 0
-		}
-		return n // returns -92 directly
-	}
-
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0
-	}
-	return n
+	return result
 }
 
 func ResolveTerminalRect(

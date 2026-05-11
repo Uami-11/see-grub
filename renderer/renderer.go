@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -121,25 +120,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// then scale to screen so positions adapt to --gfxmode
 	offscreen := ebiten.NewImage(g.designW, g.designH)
 
-	termLeft := ResolveDim(g.theme.TerminalLeft, g.designW)
-	termTop := ResolveDim(g.theme.TerminalTop, g.designH)
+	termRect := ResolveTerminalRect(
+		g.theme.TerminalLeft, g.theme.TerminalTop,
+		g.theme.TerminalWidth, g.theme.TerminalHeight,
+		Dimensions{Width: g.designW, Height: g.designH})
 
-	screenDims := Dimensions{Width: g.designW, Height: g.designH}
+	// Components are positioned relative to the terminal box.
+	// screenDims controls percentage resolution in child components.
+	screenDims := Dimensions{Width: termRect.W, Height: termRect.H}
 
 	for _, c := range g.theme.Components {
+		adjusted := c
+		adjusted.Left = strconv.Itoa(ResolveDim(c.Left, termRect.W) + termRect.X)
+		adjusted.Top = strconv.Itoa(ResolveDim(c.Top, termRect.H) + termRect.Y)
+
 		switch c.Type {
 		case parser.ComponentLabel:
-			adjusted := c
-			adjusted.Left = shiftDim(c.Left, termLeft)
-			adjusted.Top = shiftDim(c.Top, termTop)
 			DrawLabel(offscreen, adjusted, g.fonts, screenDims)
 
 		case parser.ComponentBootMenu:
 			for _, bm := range g.bootMenus {
 				if bm.Component.Line == c.Line {
-					adjusted := bm.Component
-					adjusted.Left = shiftDim(bm.Component.Left, termLeft)
-					adjusted.Top = shiftDim(bm.Component.Top, termTop)
 					bmCopy := *bm
 					bmCopy.Component = adjusted
 					bmCopy.Draw(offscreen, screenDims)
@@ -150,9 +151,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		case parser.ComponentImage:
 			for _, entry := range g.images {
 				if entry.Component.Line == c.Line {
-					adjusted := entry.Component
-					adjusted.Left = shiftDim(adjusted.Left, termLeft)
-					adjusted.Top = shiftDim(adjusted.Top, termTop)
 					drawImage(offscreen, entry.Image, adjusted, screenDims)
 					break
 				}
@@ -170,21 +168,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if len(g.initErrors) > 0 {
 		g.drawErrorOverlay(screen)
 	}
-}
-
-func shiftDim(dim string, offset int) string {
-	if offset == 0 || dim == "" {
-		return dim
-	}
-	// Only shift absolute pixel values, not percentages
-	if strings.HasSuffix(dim, "%") {
-		return dim
-	}
-	n, err := strconv.Atoi(dim)
-	if err != nil {
-		return dim
-	}
-	return strconv.Itoa(n + offset)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
