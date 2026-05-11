@@ -12,6 +12,13 @@ func ParseHexColor(hex string) (color.RGBA, error) {
 	hex = strings.TrimPrefix(hex, "#")
 
 	switch len(hex) {
+	case 8:
+		// rrggbbaa
+		r, _ := hexByte(hex[0:2])
+		g, _ := hexByte(hex[2:4])
+		b, _ := hexByte(hex[4:6])
+		a, _ := hexByte(hex[6:8])
+		return color.RGBA{R: r, G: g, B: b, A: a}, nil
 	case 6:
 		// Full format: rrggbb
 		r, err := hexByte(hex[0:2])
