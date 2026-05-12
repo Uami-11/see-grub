@@ -34,3 +34,5 @@ go.work.sum
 # My own notes
 docs/
 see-grub
+# Added by goreleaser init:
+dist/
