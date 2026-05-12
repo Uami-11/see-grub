@@ -21,25 +21,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install dependencies
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            libx11-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libxxf86vm-dev \
-            libgl1-mesa-dev \
-            libx11-dev:arm64 \
-            libxrandr-dev:arm64 \
-            libxinerama-dev:arm64 \
-            libxcursor-dev:arm64 \
-            libxi-dev:arm64 \
-            libxxf86vm-dev:arm64 \
-            libgl1-mesa-dev:arm64
+        run: sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev
 
       - uses: goreleaser/goreleaser-action@v6
         with:
