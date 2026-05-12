@@ -125,6 +125,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// screenDims controls percentage resolution in child components.
 	screenDims := Dimensions{Width: termRect.W, Height: termRect.H}
 
+	if g.theme.TitleText != "" {
+		titleFont := g.fonts.Lookup(g.theme.TitleFont)
+		if titleFont != nil {
+			titleColor := FallbackColor(g.theme.TitleColor, ColorWhite)
+			textW, _ := MeasureText(titleFont, g.theme.TitleText)
+			titleX := termRect.X + (termRect.W-textW)/2
+			titleY := termRect.Y + 20
+			DrawText(g.offscreen, titleFont, g.theme.TitleText, titleX, titleY+titleFont.Ascent, titleColor)
+		}
+	}
+
 	g.drawComponents(g.offscreen, g.theme.Components, termRect, screenDims)
 
 	op := &ebiten.DrawImageOptions{}

@@ -15,7 +15,7 @@ import (
 
 var MenuEntries = []string{
 	"Arch Linux",
-	"CachyOS",
+	"Ubuntu",
 	"Windows 11",
 }
 
