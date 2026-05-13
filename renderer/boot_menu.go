@@ -93,7 +93,8 @@ type BootMenu struct {
 	ItemSpacing int
 
 	// Navigation state
-	Selected int // index into MenuEntries, 0-based
+	Selected     int // index into MenuEntries, 0-based
+	ScrollOffset int // index of first visible entry
 
 	// Icons
 	Icons     map[string]*ebiten.Image
@@ -108,8 +109,9 @@ func NewBootMenu(
 	themeDir string,
 ) *BootMenu {
 	bm := &BootMenu{
-		Component: c,
-		Selected:  0,
+		Component:    c,
+		Selected:     0,
+		ScrollOffset: 0,
 	}
 
 	bm.ItemFont = fonts.Lookup(c.ItemFont)
@@ -187,7 +189,6 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 
 	hasBorder := bm.ItemStyle != nil || bm.SelectedStyle != nil
 
-	// Determine corner height once so we can offset the first item correctly.
 	cornerH := 0
 	if hasBorder {
 		if bm.ItemStyle != nil && bm.ItemStyle.CornerH > 0 {
@@ -197,11 +198,30 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 		}
 	}
 
-	for i, entry := range MenuEntries {
-		// Start the first item's centre at menuRect.Y + cornerH so the border's
-		// top corner lands exactly at menuRect.Y and doesn't bleed into whatever
-		// is above the menu.
-		itemY := menuRect.Y + cornerH + i*(bm.ItemHeight+bm.ItemSpacing)
+	itemStep := bm.ItemHeight + bm.ItemSpacing
+	availableH := menuRect.H - cornerH
+	visibleCount := availableH/itemStep + 1
+	if visibleCount < 1 {
+		visibleCount = 1
+	}
+
+	maxOffset := len(MenuEntries) - visibleCount
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if bm.ScrollOffset > bm.Selected {
+		bm.ScrollOffset = bm.Selected
+	}
+	if bm.ScrollOffset < bm.Selected-visibleCount+1 {
+		bm.ScrollOffset = bm.Selected - visibleCount + 1
+	}
+	if bm.ScrollOffset > maxOffset {
+		bm.ScrollOffset = maxOffset
+	}
+
+	for i := bm.ScrollOffset; i < len(MenuEntries); i++ {
+		relIndex := i - bm.ScrollOffset
+		itemY := menuRect.Y + cornerH + relIndex*(bm.ItemHeight+bm.ItemSpacing)
 		itemRect := Rect{X: menuRect.X, Y: itemY, W: menuRect.W, H: bm.ItemHeight}
 
 		var borderRect Rect
@@ -220,7 +240,7 @@ func (bm *BootMenu) Draw(dst *ebiten.Image, screen Dimensions) {
 			break
 		}
 
-		bm.drawItem(dst, itemRect, borderRect, entry, i == bm.Selected)
+		bm.drawItem(dst, itemRect, borderRect, MenuEntries[i], i == bm.Selected)
 	}
 }
 
