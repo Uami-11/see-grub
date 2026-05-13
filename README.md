@@ -6,6 +6,14 @@ Made with go and the power of [Ebitengine](https://ebitengine.org/)!
 
 ## Installation
 
+### From AUR
+
+```sh
+yay -S see-grub-bin
+# OR
+paru -S see-grub-bin
+```
+
 ### From source
 
 ```sh
