@@ -21,8 +21,16 @@ const (
 )
 
 func main() {
+	for _, arg := range os.Args[1:] {
+		if arg == "--help" || arg == "-h" {
+			printHelp()
+			os.Exit(0)
+		}
+	}
+
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: see-grub <theme-directory or theme.txt path>\n")
+		fmt.Fprintf(os.Stderr, "Usage: see-grub <theme-directory-or-file> [--gfxmode=WxH]\n")
+		fmt.Fprintf(os.Stderr, "Run 'see-grub --help' for more information.\n")
 		os.Exit(1)
 	}
 
@@ -265,6 +273,37 @@ func orEmpty(s string) string {
 
 func divider() {
 	fmt.Println(strings.Repeat("─", 60))
+}
+
+func printHelp() {
+	fmt.Printf(`%ssee-grub — GRUB THEME RENDERER%s
+
+Usage:
+  see-grub <theme-directory-or-file> [--gfxmode=WxH]
+
+Arguments:
+  theme-directory-or-file
+        Path to a GRUB theme directory (containing theme.txt) or
+        directly to a theme.txt file.
+
+Options:
+  --gfxmode=WxH
+        Set the preview window to a specific width and height
+        in pixels. If omitted, defaults are used.
+        Example: --gfxmode=1920x1080
+
+  --help, -h
+        Show this help message.
+
+Examples:
+  see-grub ~/.grub/themes/my-theme
+  see-grub ~/Downloads/theme/theme.txt
+  see-grub ~/.grub/themes/my-theme --gfxmode=2560x1600
+
+Controls:
+  ↑ / ↓    Navigate boot entries
+  ESC / Q  Quit preview
+%s`, colorBold, colorCyan, colorReset)
 }
 
 var _ = divider
