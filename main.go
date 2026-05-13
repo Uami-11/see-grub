@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,43 +22,104 @@ const (
 )
 
 func main() {
+	var (
+		showHelp        bool
+		showCurrent     bool
+		doChangeEntries bool
+		doResetEntries  bool
+		addEntryReq     bool
+		addEntryText    string
+		gfxW, gfxH      int
+		themeArg        string
+	)
+
 	for _, arg := range os.Args[1:] {
-		if arg == "--help" || arg == "-h" {
-			printHelp()
-			os.Exit(0)
-		}
-	}
-
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: see-grub <theme-directory-or-file> [--gfxmode=WxH]\n")
-		fmt.Fprintf(os.Stderr, "Run 'see-grub --help' for more information.\n")
-		os.Exit(1)
-	}
-
-	themePath := resolveThemePath(os.Args[1])
-	if themePath == "" {
-		fmt.Fprintf(os.Stderr, "%serror:%s could not find theme.txt in '%s'\n",
-			colorRed, colorReset, os.Args[1])
-		os.Exit(1)
-	}
-
-	fmt.Printf("%s%ssee-grub — theme diagnostics%s\n", colorBold, colorCyan, colorReset)
-	fmt.Printf("Parsing: %s\n\n", themePath)
-
-	// In main(), after resolving themePath, check for --gfxmode flag
-	var gfxW, gfxH int
-	for _, arg := range os.Args[2:] {
-		if strings.HasPrefix(arg, "--gfxmode=") {
+		switch {
+		case arg == "--help" || arg == "-h":
+			showHelp = true
+		case arg == "--currentEntries":
+			showCurrent = true
+		case arg == "--changeEntries":
+			doChangeEntries = true
+		case arg == "--resetEntries":
+			doResetEntries = true
+		case strings.HasPrefix(arg, "--addEntry"):
+			addEntryReq = true
+			suffix := strings.TrimPrefix(arg, "--addEntry")
+			if strings.HasPrefix(suffix, "=") {
+				addEntryText = suffix[1:]
+			}
+		case strings.HasPrefix(arg, "--gfxmode="):
 			val := strings.TrimPrefix(arg, "--gfxmode=")
-			// Strip ,auto or ,keep suffixes
 			val = strings.Split(val, ",")[0]
 			parts := strings.Split(val, "x")
 			if len(parts) == 2 {
 				gfxW, _ = strconv.Atoi(parts[0])
 				gfxH, _ = strconv.Atoi(parts[1])
 			}
+		default:
+			if !strings.HasPrefix(arg, "-") && themeArg == "" {
+				themeArg = arg
+			}
 		}
 	}
+
+	if showHelp {
+		printHelp()
+		os.Exit(0)
+	}
+
+	if doResetEntries {
+		renderer.ResetMenuEntries()
+		if !showCurrent {
+			fmt.Println("Menu entries reset to defaults.")
+			os.Exit(0)
+		}
+	}
+
+	if addEntryReq {
+		text := addEntryText
+		if text == "" {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Enter new entry text: ")
+			text, _ = reader.ReadString('\n')
+			text = strings.TrimSpace(text)
+		}
+		renderer.MenuEntries = append(renderer.MenuEntries, text)
+		renderer.SaveEntries()
+		if !showCurrent {
+			fmt.Printf("Added entry: %q\n", text)
+			os.Exit(0)
+		}
+	}
+
+	if doChangeEntries {
+		changeEntries()
+		if !showCurrent {
+			os.Exit(0)
+		}
+	}
+
+	if showCurrent {
+		printCurrentEntries()
+		os.Exit(0)
+	}
+
+	if themeArg == "" {
+		fmt.Fprintf(os.Stderr, "Usage: see-grub <theme-directory-or-file> [--gfxmode=WxH]\n")
+		fmt.Fprintf(os.Stderr, "Run 'see-grub --help' for more information.\n")
+		os.Exit(1)
+	}
+
+	themePath := resolveThemePath(themeArg)
+	if themePath == "" {
+		fmt.Fprintf(os.Stderr, "%serror:%s could not find theme.txt in '%s'\n",
+			colorRed, colorReset, themeArg)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s%ssee-grub — theme diagnostics%s\n", colorBold, colorCyan, colorReset)
+	fmt.Printf("Parsing: %s\n\n", themePath)
 
 	theme, errs := parser.Parse(themePath)
 
@@ -292,6 +354,20 @@ Options:
         in pixels. If omitted, defaults are used.
         Example: --gfxmode=1920x1080
 
+  --currentEntries
+        List the current menu entries and exit.
+
+  --changeEntries
+        Interactively change a menu entry. You will be prompted
+        to select an entry by index and provide new text.
+
+  --addEntry[=TEXT]
+        Add a new menu entry. If TEXT is provided inline it is
+        used directly; otherwise you will be prompted.
+
+  --resetEntries
+        Reset menu entries back to the default three.
+
   --help, -h
         Show this help message.
 
@@ -304,6 +380,52 @@ Controls:
   ↑ / ↓    Navigate boot entries
   ESC / Q  Quit preview
 %s`, colorBold, colorCyan, colorReset)
+}
+
+func printCurrentEntries() {
+	if len(renderer.MenuEntries) == 0 {
+		fmt.Println("No menu entries.")
+		return
+	}
+	fmt.Println("Current menu entries:")
+	for i, entry := range renderer.MenuEntries {
+		fmt.Printf("  [%d] %s\n", i, entry)
+	}
+}
+
+func changeEntries() {
+	if len(renderer.MenuEntries) == 0 {
+		fmt.Println("No menu entries to change.")
+		return
+	}
+
+	fmt.Println("Current menu entries:")
+	for i, entry := range renderer.MenuEntries {
+		fmt.Printf("  [%d] %s\n", i, entry)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("\nSelect entry to change (0-%d): ", len(renderer.MenuEntries)-1)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	idx, err := strconv.Atoi(input)
+	if err != nil || idx < 0 || idx >= len(renderer.MenuEntries) {
+		fmt.Fprintf(os.Stderr, "%serror:%s invalid index: %s\n", colorRed, colorReset, input)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Current value: %q\n", renderer.MenuEntries[idx])
+	fmt.Print("New text: ")
+	text, _ := reader.ReadString('\n')
+	text = strings.TrimSpace(text)
+	if text == "" {
+		fmt.Println("No change made.")
+		return
+	}
+
+	renderer.MenuEntries[idx] = text
+	renderer.SaveEntries()
+	fmt.Printf("Entry [%d] changed to %q\n", idx, text)
 }
 
 var _ = divider
