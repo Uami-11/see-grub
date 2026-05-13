@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"encoding/json"
 	"image/color"
 	"os"
 	"path/filepath"
@@ -13,10 +14,65 @@ import (
 	"github.com/Uami-11/see-grub/parser"
 )
 
-var MenuEntries = []string{
+var defaultMenuEntries = []string{
 	"Arch Linux",
 	"Ubuntu",
 	"Windows 11",
+}
+
+var MenuEntries []string
+
+func init() {
+	MenuEntries = append([]string{}, defaultMenuEntries...)
+	LoadEntries()
+}
+
+func entriesFilePath() string {
+	cfgDir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Join(cfgDir, "see-grub")
+	return filepath.Join(dir, "entries.json")
+}
+
+func LoadEntries() {
+	path := entriesFilePath()
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var loaded []string
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		return
+	}
+	if len(loaded) > 0 {
+		MenuEntries = loaded
+	}
+}
+
+func SaveEntries() error {
+	path := entriesFilePath()
+	if path == "" {
+		return nil
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	data, err := json.Marshal(MenuEntries)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func ResetMenuEntries() {
+	MenuEntries = append([]string{}, defaultMenuEntries...)
+	SaveEntries()
 }
 
 type BootMenu struct {
