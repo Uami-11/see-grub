@@ -6,6 +6,14 @@ Made with go and the power of [Ebitengine](https://ebitengine.org/)!
 
 ## Installation
 
+### From AUR
+
+```sh
+yay -S see-grub-bin
+# OR
+paru -S see-grub-bin
+```
+
 ### From source
 
 ```sh
@@ -20,7 +28,10 @@ Requires Go 1.26 or later.
 
 ```sh
 see-grub <theme-directory-or-file> [--gfxmode=WxH]
+
+# Run 'see-grub --help' for more information.
 ```
+
 
 ### Examples
 
