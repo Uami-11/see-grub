@@ -378,6 +378,7 @@ Examples:
 
 Controls:
   ↑ / ↓    Navigate boot entries
+  F        Toggle fullscreen
   ESC / Q  Quit preview
 %s`, colorBold, colorCyan, colorReset)
 }

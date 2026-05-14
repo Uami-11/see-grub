@@ -71,4 +71,5 @@ see-grub --resetEntries
 | Key | Action |
 |---|---|
 | `↑` / `↓` | Navigate boot entries |
+| `F` | Toggle fullscreen |
 | `ESC` / `Q` | Quit preview |

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/Uami-11/see-grub/parser"
 )
@@ -34,6 +35,8 @@ type Game struct {
 
 	offscreen *ebiten.Image
 	errPanel  *ebiten.Image
+
+	fullscreen bool
 
 	initErrors []string
 }
@@ -102,6 +105,11 @@ func (g *Game) buildComponents(components []parser.Component) {
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) || ebiten.IsKeyPressed(ebiten.KeyQ) {
 		os.Exit(0)
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		g.fullscreen = !g.fullscreen
+		ebiten.SetFullscreen(g.fullscreen)
 	}
 
 	for _, bm := range g.bootMenus {
